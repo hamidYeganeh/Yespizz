@@ -1,5 +1,32 @@
 {
   "home": {
-    "title": "Application"
+    "title": "Application",
+    "menu": "View menu",
+    "theme": "Switch theme"
+  },
+  "menu": {
+    "american": "American pizza",
+    "margherita": "Margherita",
+    "americanDescription": "Spicy pepperoni and melted mozzarella over sweet tomato sauce, finished with a golden, hand-stretched crust baked until crisp.",
+    "margheritaDescription": "Fresh basil, creamy mozzarella and tomato sauce on a crisp, hand-stretched crust.",
+    "reviews": "Reviews",
+    "reviewers": "From <b>{count}</b> reviewers",
+    "review1": "The crust had just the right crunch, with plenty of cheese all the way to the edge. I’d order this again.",
+    "review2": "Loved the tomato sauce and the lightly toasted crust. A new favourite for pizza night.",
+    "review3": "Fresh out of the oven and perfect for sharing.",
+    "days": "{count} days ago",
+    "recommend": "Recommended For You",
+    "seeAll": "See All",
+    "less": "Show less",
+    "promo": "PROMO",
+    "favorite": "Save recommendation",
+    "back": "Back to home",
+    "total": "Total Amount",
+    "decrease": "Decrease quantity",
+    "increase": "Increase quantity",
+    "buy": "Buy",
+    "basket": "Basket",
+    "empty": "Your basket is empty.",
+    "close": "Close"
   }
 }

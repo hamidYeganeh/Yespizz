@@ -1,6 +1,7 @@
 import "@fontsource-variable/inter";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getTranslations} from "next-intl/server";
+import {ThemeProvider} from "next-themes";
 import "./globals.css";
 
 export async function generateMetadata() {
@@ -10,8 +11,12 @@ export async function generateMetadata() {
 
 export default async function RootLayout({children}: LayoutProps<"/">) {
   return (
-    <html lang={await getLocale()}>
-      <body><NextIntlClientProvider>{children}</NextIntlClientProvider></body>
+    <html lang={await getLocale()} suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

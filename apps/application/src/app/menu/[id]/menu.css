@@ -1,0 +1,365 @@
+.dish {
+  --ink: oklch(15% 0.008 240);
+  --paper: oklch(99% 0 0);
+  --buy-bg: oklch(16% 0.065 312);
+  --hero-top: var(--accent);
+  --hero-mid: color-mix(in oklch, var(--accent) 78%, var(--background));
+  --outline: color-mix(in srgb, var(--paper) 85%, transparent);
+  --action-shadow: 0 8px 26px color-mix(in srgb, var(--ink) 24%, transparent);
+  position: relative;
+  max-width: 34rem;
+  min-height: 100svh;
+  margin: auto;
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--surface-foreground);
+}
+.dark .dish {
+  --hero-top: color-mix(in oklch, var(--accent) 65%, var(--background));
+  --hero-mid: color-mix(in oklch, var(--accent) 30%, var(--surface));
+  --outline: color-mix(in srgb, var(--accent) 44%, transparent);
+  --buy-bg: var(--surface-tertiary);
+}
+.dish-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  text-align: center;
+  padding: calc(3.25rem + env(safe-area-inset-top)) 1rem 1.25rem;
+  background: linear-gradient(
+    180deg,
+    var(--hero-top) 0%,
+    var(--hero-mid) 44%,
+    var(--surface) 100%
+  );
+}
+.wordmark {
+  position: absolute;
+  inset: -0.65rem 0 0;
+  text-align: left;
+  mask-image: linear-gradient(to bottom, black 35%, transparent 88%);
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.wordmark div {
+  font-size: 4.75rem;
+  line-height: 1.01;
+  font-style: italic;
+  font-weight: 950;
+  letter-spacing: -0.065em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--outline);
+}
+.wordmark div:nth-child(even) {
+  margin-left: -6rem;
+}
+.dish-photo {
+  display: block;
+  width: min(59vw, 246px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  margin: 0 auto 0.85rem;
+  border-radius: 50%;
+  filter: drop-shadow(
+    0 12px 14px color-mix(in srgb, var(--ink) 24%, transparent)
+  );
+}
+.dish-toolbar,
+.order-anchor {
+  position: fixed;
+  inset-inline: 0;
+  width: min(100%, 34rem);
+  margin-inline: auto;
+  z-index: 5;
+  display: flex;
+  pointer-events: none;
+}
+.dish-toolbar {
+  top: 0;
+  justify-content: space-between;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 0.75rem 1rem;
+}
+.edge-blur,
+.edge-blur > div {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.edge-blur {
+  background: linear-gradient(to top, var(--background), transparent);
+}
+.dish-back,
+.basket-trigger {
+  position: relative;
+  pointer-events: auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--paper);
+}
+.dish-back {
+  font-size: 1.65rem;
+}
+.dish-score {
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+.dish-score span,
+.dish i {
+  color: var(--warning);
+  font-style: normal;
+}
+.dish-score span {
+  font-size: 1.4rem;
+  vertical-align: -0.1em;
+}
+.dish-hero h1 {
+  margin: 0.5rem 0 0.75rem;
+  font-size: clamp(2rem, 7vw, 2.6rem);
+  line-height: 1.1;
+  font-weight: 950;
+  letter-spacing: -0.05em;
+}
+.dish-hero p,
+.review-card .card__content {
+  font-size: 0.91rem;
+  line-height: 1.42;
+}
+.dish-hero p {
+  max-width: 27rem;
+  margin: 0 auto;
+}
+.dish-reviews,
+.recommendations {
+  padding: 0 0.75rem;
+}
+.review-summary,
+.review-card {
+  background: var(--surface-secondary);
+  color: var(--surface-secondary-foreground);
+  border-radius: 1.5rem;
+}
+.review-summary,
+.review-author {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.review-summary {
+  padding: 0.5rem;
+  font-size: 0.84rem;
+}
+.review-summary strong,
+.review-author strong,
+.review-card small {
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 0.25rem 0.65rem;
+}
+.review-summary strong {
+  font-size: 1.45rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.portraits {
+  display: flex;
+  margin-left: auto;
+  padding-right: 0.1rem;
+}
+.portraits img {
+  margin-left: -0.5rem;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+}
+.review-strip {
+  display: flex;
+  overflow: auto;
+  margin: 0.5rem -0.75rem 0;
+  padding: 0 0.75rem;
+  gap: 0.35rem;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0.75rem;
+  scrollbar-width: none;
+}
+.review-card {
+  flex: 0 0 min(84%, 22rem);
+  scroll-snap-align: start;
+  padding: 0.55rem;
+  gap: 0.7rem;
+  box-shadow: none;
+}
+.review-author {
+  font-size: 0.88rem;
+}
+.review-author strong {
+  margin-left: auto;
+}
+.review-author i {
+  font-size: 1.15rem;
+}
+.review-card small {
+  align-self: start;
+  font-size: 0.74rem;
+  margin-top: auto;
+}
+.recommendations header,
+.recommendation,
+.recommendation a,
+.order-inner,
+.buy {
+  display: flex;
+  align-items: center;
+}
+.recommendations header {
+  justify-content: space-between;
+  margin: 0.6rem 0 0.4rem;
+}
+.recommendations h2 {
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+.recommendations header button {
+  color: color-mix(in oklch, var(--accent) 46%, var(--foreground));
+  font-weight: 750;
+}
+.recommendation {
+  position: relative;
+  padding: 0.65rem;
+  border-radius: 1.5rem;
+  background: var(--surface);
+  box-shadow: 0 3px 22px color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.recommendation a {
+  flex: 1;
+  gap: 1rem;
+}
+.recommendation img {
+  width: min(31vw, 118px);
+  height: min(31vw, 118px);
+  object-fit: cover;
+  border-radius: 1.1rem;
+}
+.recommendation a div {
+  display: grid;
+  gap: 0.5rem;
+}
+.recommendation a span {
+  font-size: 0.83rem;
+  color: var(--muted);
+}
+.recommendation small {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  pointer-events: none;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-radius: 99px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.favorite {
+  align-self: end;
+  border-radius: 50%;
+  font-size: 1.3rem;
+}
+.order-anchor {
+  bottom: 0;
+  justify-content: center;
+  padding: 1.5rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+}
+.order {
+  position: relative;
+  pointer-events: auto;
+  border-radius: 99px;
+  background: var(--buy-bg);
+  color: var(--paper);
+  box-shadow: var(--action-shadow);
+}
+.order.expanded {
+  width: 100%;
+  background: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--paper) 12%, transparent);
+}
+.order-inner {
+  gap: clamp(0.3rem, 2vw, 0.9rem);
+}
+.order.expanded .order-inner {
+  padding: 0.25rem;
+  padding-inline-start: 1.15rem;
+}
+.buy {
+  gap: 0.5rem;
+  border-radius: 99px;
+  padding: 0 1.45rem;
+  min-height: 54px;
+  font-weight: 700;
+}
+.buy,
+.step {
+  cursor: pointer;
+}
+.buy strong,
+.total strong {
+  font-size: 1.25rem;
+}
+.add-mark {
+  font-size: 1.65rem;
+  font-weight: 400;
+}
+.expanded .buy {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  padding-inline: 0.85rem;
+}
+.total {
+  display: grid;
+  margin-right: auto;
+  line-height: 1.25;
+}
+.total small {
+  color: color-mix(in srgb, var(--paper) 78%, transparent);
+  font-weight: 600;
+}
+.step {
+  width: clamp(2.25rem, 10vw, 2.75rem);
+  height: 2.75rem;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--paper) 28%, var(--ink));
+  font-size: 1.2rem;
+}
+.step.plus {
+  background: var(--paper);
+  color: var(--ink);
+}
+.order output {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 800;
+}
+.basket-dialog {
+  margin: auto;
+  padding: 1.5rem;
+  width: min(90vw, 24rem);
+  border-radius: 1.5rem;
+  background: var(--overlay);
+  color: var(--overlay-foreground);
+}
+.basket-dialog::backdrop {
+  background: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.basket-dialog h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.basket-dialog p {
+  display: flex;
+  justify-content: space-between;
+  margin: 1rem 0;
+}

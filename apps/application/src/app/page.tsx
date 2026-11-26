@@ -1,3 +1,5 @@
+import Link from "next/link";
+import {ThemeSwitch} from "./theme-switch";
 import {Button} from "@heroui/react/button";
 import {changeLocale} from "@repo/i18n/actions";
 import {getLocale, getTranslations} from "next-intl/server";
@@ -17,6 +19,10 @@ export default async function Home() {
         </select>
         <Button type="submit">{language("apply")}</Button>
       </form>
+      <div className="mt-6 flex items-center gap-4">
+        <Link className="underline" href="/menu/1">{t("menu")}</Link>
+        <ThemeSwitch />
+      </div>
     </main>
   );
 }

@@ -1,5 +1,32 @@
 {
   "home": {
-    "title": "Applicatie"
+    "title": "Applicatie",
+    "menu": "Bekijk het menu",
+    "theme": "Thema wisselen"
+  },
+  "menu": {
+    "american": "Amerikaanse pizza",
+    "margherita": "Margherita",
+    "americanDescription": "Pittige pepperoni, gesmolten mozzarella en zoete tomatensaus op een goudbruine, handgevormde bodem.",
+    "margheritaDescription": "Vers basilicum, romige mozzarella en tomatensaus op een knapperige bodem.",
+    "reviews": "Recensies",
+    "reviewers": "Van <b>{count}</b> beoordelaars",
+    "review1": "De bodem was lekker knapperig en de kaas kwam helemaal tot aan de rand. Deze bestel ik nog eens.",
+    "review2": "Heerlijke tomatensaus en een knapperige rand. Mijn nieuwe favoriet voor een pizza-avond.",
+    "review3": "Vers uit de oven en perfect om te delen.",
+    "days": "{count} dagen geleden",
+    "recommend": "Aanbevolen voor jou",
+    "seeAll": "Bekijk alles",
+    "less": "Toon minder",
+    "promo": "ACTIE",
+    "favorite": "Aanbeveling bewaren",
+    "back": "Terug naar start",
+    "total": "Totaalbedrag",
+    "decrease": "Aantal verlagen",
+    "increase": "Aantal verhogen",
+    "buy": "Koop",
+    "basket": "Winkelmand",
+    "empty": "Je winkelmand is leeg.",
+    "close": "Sluiten"
   }
 }
