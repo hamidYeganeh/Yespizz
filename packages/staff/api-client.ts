@@ -25,7 +25,15 @@ export async function apiFetch(
     if (value && !headers.has(key)) headers.set(key, value);
   }
   const origin = process.env.YESPIZZ_API_URL ?? "http://localhost:7038";
-  return fetch(new URL(path, origin), {
+  const upstream = new URL(path, origin);
+  if (upstream.origin !== new URL(origin).origin) {
+    throw new Error("Invalid authentication service URL.");
+  }
+  const bypass = process.env.YESPIZZ_API_VERCEL_BYPASS_SECRET;
+  if (upstream.protocol === "https:" && bypass) {
+    headers.set("x-vercel-protection-bypass", bypass);
+  }
+  return fetch(upstream, {
     ...init,
     headers,
     cache: "no-store",
