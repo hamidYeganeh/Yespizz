@@ -41,6 +41,9 @@ import "./checkout.css";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { commerceApi } from "@/lib/commerce-client";
+
+type CheckoutQuote = { total: number; subtotal: number; discount: number; deliveryFee: number; etaMinutes: number };
 
 type Screen = "items" | "delivery" | "address" | "payment" | "done";
 type Receipt = {
@@ -112,7 +115,10 @@ export function PaymentFlow() {
   const t = useTranslations("Application.checkout");
   const dish = useTranslations("Application.menu");
   const format = useFormatter();
-  const currency = new Intl.NumberFormat(useLocale(), {
+  const locale = useLocale();
+  const german = locale.startsWith("de");
+  const online = process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1";
+  const currency = new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 0,
@@ -143,7 +149,7 @@ export function PaymentFlow() {
   const [code, setCode] = useState("");
   const offerForm = useForm({
     defaultValues: { code: "" },
-    resolver: zodResolver(z.object({ code: z.string().trim().refine(value => !value || value === offerCode, t("invalid")) })),
+    resolver: zodResolver(z.object({ code: z.string().trim().max(80).refine(value => online || !value || value === offerCode, t("invalid")) })),
   });
   const [orders, saveOrders] = useProfileValue<StoredOrder[]>("orders", []);
   const sheet = useRef<HTMLDialogElement>(null);
@@ -163,10 +169,10 @@ export function PaymentFlow() {
     const draft = sessionStorage.getItem(checkoutOfferDraft);
     if (draft === null) return;
     const applied = sessionStorage.getItem(checkoutOfferDraft + "-applied");
-    setCode(applied === offerCode ? applied : "");
+    setCode(applied && (online || applied === offerCode) ? applied : "");
     resetOffer({code:draft});
     setScreen("payment");
-  }, [stored, count, resetOffer]);
+  }, [stored, count, resetOffer, online]);
 
   useEffect(() => {
     if (screen !== "payment" || !sheet.current || sessionStorage.getItem(checkoutOfferDraft) === null) return;
@@ -201,16 +207,74 @@ export function PaymentFlow() {
       else router.replace("/menu");
     }
   }
-  const online=process.env.NEXT_PUBLIC_YESPIZ_OFFLINE!=="1";
-  const [shops,setShops]=useState<{owner:string;name:string}[]>([]);
-  const [chosen,choose]=useState("");
-  const owner=chosen||shops[0]?.owner;
-  const [pending,setPending]=useState(false);
-  const requestRef=useRef("");
-  useEffect(()=>{if(online)fetch("/api/orders").then(r=>r.json()).then(setShops).catch(()=>setShops([]))},[online]);
+  const [shops, setShops] = useState<{ owner: string; name: string; accepting: boolean; paymentsAvailable: boolean }[]>([]);
+  const [chosen, choose] = useState("");
+  const owner = chosen || shops[0]?.owner;
+  const [slots, setSlots] = useState<string[]>([]);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [contact, setContact] = useState({ name: "", email: "", phone: "" });
+  const [confirmedQuote, setConfirmedQuote] = useState<{ key: string; price: CheckoutQuote } | null>(null);
+  const requestRef = useRef({ key: "", reference: "" });
+  const inFlight = useRef(false);
+  const [resume, setResume] = useState("");
+  const orderInput = { owner, address, scheduledAt, code, items: entries.map(item => ({ id: item.id, quantity: basket[item.id] })) };
+  const quoteKey = JSON.stringify(orderInput);
+  const currentQuote = confirmedQuote?.key === quoteKey ? confirmedQuote.price : null;
+  useEffect(() => {
+    if (!online) return;
+    setResume(new URLSearchParams(location.search).get("resume") ?? "");
+    commerceApi<typeof shops>("restaurants").then(data => setShops(data.filter(shop => shop.accepting))).catch(() => {});
+    commerceApi<typeof contact & { contactPhone?: string }>("me").then(data => {
+      setContact(previous => ({ name: previous.name || data.name || "", email: previous.email || data.email || "", phone: previous.phone || data.contactPhone || "" }));
+    }).catch(() => {});
+  }, [online]);
+  useEffect(() => {
+    if (!owner) return;
+    let active = true;
+    commerceApi<string[]>(`restaurants/${encodeURIComponent(owner)}/delivery-slots`).then(data => { if (active) setSlots(data); }).catch(() => { if (active) setSlots([]); });
+    return () => { active = false; };
+  }, [owner]);
+
+  async function handleOnline(work: () => Promise<void>) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
+    setError("");
+    try { await work(); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "Checkout is unavailable."); }
+    finally { inFlight.current = false; setPending(false); }
+  }
+
+  async function pay(reference: string) {
+    const result = await commerceApi<{ url: string | null }>(`orders/${encodeURIComponent(reference)}/payment`, "POST", {});
+    if (result.url) window.location.assign(result.url);
+    else router.push(`/orders/${encodeURIComponent(reference)}`);
+  }
+
   async function advance() {
-    if(pending)return;
-    if (screen === "items") show("delivery");
+    if (pending) return;
+    if (screen === "items") { show("delivery"); return; }
+    if (online && address && (screen === "delivery" || screen === "payment")) {
+      await handleOnline(async () => {
+        if (!currentQuote || screen === "delivery") {
+          const price = await commerceApi<CheckoutQuote>("checkout/quote", "POST", orderInput);
+          setConfirmedQuote({ key: quoteKey, price });
+          if (screen === "delivery") show("payment");
+          return;
+        }
+        if (!contact.name.trim() || !/^\S+@\S+\.\S+$/.test(contact.email.trim()) || contact.phone.trim().length < 5) {
+          throw new Error(german ? "Bitte Name, E-Mail und Telefonnummer eingeben." : "Enter your name, email and phone number.");
+        }
+        const key = JSON.stringify([quoteKey, contact, currentQuote.total]);
+        if (requestRef.current.key !== key) requestRef.current = { key, reference: "FIT" + crypto.randomUUID() };
+        const { reference } = requestRef.current;
+        await commerceApi("orders", "POST", { ...orderInput, ...contact, reference, expectedTotal: currentQuote.total });
+        sessionStorage.setItem(`yespizz-checkout-${reference}`, stored);
+        await pay(reference);
+      });
+      return;
+    }
     if (screen === "delivery" && address) show("payment");
     if (screen === "payment" && address) {
       if (scheduledAt && Date.parse(scheduledAt) <= Date.now()) { show("delivery"); return; }
@@ -218,10 +282,9 @@ export function PaymentFlow() {
       let approved =
         new URLSearchParams(window.location.search).get("payment") !==
         "declined";
-      const reference=requestRef.current ||= "FIT"+crypto.randomUUID();
+      const reference = requestRef.current.reference ||= "FIT" + crypto.randomUUID();
       if (approved) {
         try {
-          if(online){setPending(true);const result=await fetch("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reference,owner,items:Object.fromEntries(entries.map(item => [item.id,basket[item.id]])),code,point:address.point,city:address.city})});if(!result.ok)throw Error("Order could not be placed")}
           saveOrders([{ point: address.point, paymentMethod, scheduledAt: scheduledAt || undefined, reference, date: new Date().toISOString(), total, address: addressLine(address), items: { ...basket } }, ...orders]);
           setScheduledAt("");
           localStorage.removeItem("yespiz-basket");
@@ -246,6 +309,11 @@ export function PaymentFlow() {
   return (
     <PageTransition pageKey={screen} effect="slide">
       <main className="checkout">
+        {error && <p role="alert">{error}</p>}
+        {resume && <Card className="checkout-card">
+          <Button onPress={() => void handleOnline(() => pay(resume))} isDisabled={pending}>{german ? "Zahlung fortsetzen" : "Resume payment"}</Button>
+          <Button variant="outline" onPress={() => setResume("")}>{german ? "Schließen" : "Dismiss"}</Button>
+        </Card>}
         <header>
           <Button
             isIconOnly size="lg"
@@ -384,8 +452,16 @@ export function PaymentFlow() {
                 )}
               </Card>
             )}
-            {screen==="delivery" && online && <Card className="checkout-card"><label>Restaurant<select className="block w-full rounded-xl bg-surface-secondary p-3" value={owner??""} onChange={e=>choose(e.target.value)}>{shops.map(shop=><option key={shop.owner} value={shop.owner}>{shop.name}</option>)}</select></label>{!shops.length && <p>No restaurants are accepting orders yet.</p>}{address && !address.point && <p>Choose a saved address with a delivery map pin.</p>}</Card>}
-            {screen === "delivery" && <ScheduleOrder value={scheduledAt} onChange={setScheduledAt} />}
+            {screen === "delivery" && online && <Card className="checkout-card">
+              <label>Restaurant<select className="block w-full rounded-xl bg-surface-secondary p-3" value={owner ?? ""} onChange={e => { choose(e.target.value); setScheduledAt(""); }}>{shops.map(shop => <option key={shop.owner} value={shop.owner}>{shop.name}</option>)}</select></label>
+              {!shops.length && <p>{german ? "Derzeit nimmt kein Restaurant Bestellungen an." : "No restaurants are accepting orders yet."}</p>}
+              {owner && !shops.find(shop => shop.owner === owner)?.paymentsAvailable && <p>{german ? "Online-Zahlungen sind derzeit nicht verfügbar." : "Online payments are currently unavailable."}</p>}
+              <label>{german ? "Lieferzeit" : "Delivery time"}<select className="block w-full rounded-xl bg-surface-secondary p-3" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)}>
+                <option value="">{german ? "So bald wie möglich" : "As soon as possible"}</option>
+                {slots.map(slot => <option key={slot} value={slot}>{format.dateTime(new Date(slot), { timeZone: "Europe/Vienna", dateStyle: "short", timeStyle: "short" })}</option>)}
+              </select></label>
+            </Card>}
+            {screen === "delivery" && !online && <ScheduleOrder value={scheduledAt} onChange={setScheduledAt} />}
             {screen === "address" && (
               <form
                 id="checkout-address"
@@ -431,10 +507,15 @@ export function PaymentFlow() {
                     <CreditCard />
                     {t("payment")}
                   </h2>
-                  <fieldset aria-label={t("payment")} className="grid gap-2">{methods.map(name =>
+                  {online ? <fieldset className="checkout-form">
+                    <label>{german ? "Name" : "Full name"}<Input autoComplete="name" value={contact.name} onChange={e => setContact({ ...contact, name: e.target.value })} /></label>
+                    <label>{german ? "E-Mail" : "Email"}<Input type="email" autoComplete="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} /></label>
+                    <label>{german ? "Telefonnummer" : "Phone"}<Input type="tel" autoComplete="tel" value={contact.phone} onChange={e => setContact({ ...contact, phone: e.target.value })} /></label>
+                    {currentQuote && <p>{german ? "Lieferkosten" : "Delivery"} {currency.format(currentQuote.deliveryFee / 100)} · {currentQuote.etaMinutes} min</p>}
+                  </fieldset> : <fieldset aria-label={t("payment")} className="grid gap-2">{methods.map(name =>
                     <label className="checkout-choice cursor-pointer" key={name}>
                       <input type="radio" name="paymentMethod" checked={paymentMethod === name} onChange={() => selectMethod(name)}/>{name}
-                    </label>)}</fieldset>
+                    </label>)}</fieldset>}
                 </Card>
                 <dialog
                   ref={sheet}
@@ -509,10 +590,10 @@ export function PaymentFlow() {
                 <>
                   <div>
                     <small>{dish("total")}</small>
-                    <strong>{money(total, subtotal)}</strong>
+                    <strong>{money(currentQuote ? currentQuote.total / 100 : total, subtotal)}</strong>
                   </div>
-                  <Button isDisabled={pending || (screen === "delivery" && (!address || (online && (!address.point || !owner))))} data-own-sound={screen === "payment" ? "" : undefined} onPress={advance}>
-                    {t(screen === "payment" ? "confirmDemo" : "continue")}
+                  <Button isDisabled={pending || (screen === "delivery" && (!address || (online && (!owner || !shops.find(shop => shop.owner === owner)?.paymentsAvailable))))} data-own-sound={screen === "payment" ? "" : undefined} onPress={advance}>
+                    {screen === "payment" && online ? currentQuote ? german ? "Zahlungspflichtig bestellen" : "Pay and place order" : german ? "Preis prüfen" : "Review price" : t(screen === "payment" ? "confirmDemo" : "continue")}
                   </Button>
                 </>
               )}

@@ -17,7 +17,17 @@ async function initialize() {
     trustedOrigins: ["https://appleid.apple.com"],
     emailAndPassword: { enabled: true, disableSignUp: true, revokeSessionsOnPasswordReset:true, requireEmailVerification: true },
     rateLimit: { enabled: true, storage: "database" },
-    user: { additionalFields: { inviteCode: {type:"string", required:false, input:false, defaultValue: () => crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase()}, contactPhone: { type: "string", required: false } } },
+    databaseHooks: { user: { delete: { after: async (user) => {
+      const { eraseCustomer } = await import("../../../../packages/ui/src/commerce-store");
+      eraseCustomer(user.id);
+    } } } },
+    user: { deleteUser: { enabled: true, async sendDeleteAccountVerification({ user, url }) {
+      if (!process.env.RESEND_API_KEY || !process.env.AUTH_EMAIL_FROM) throw new Error("Email delivery is not configured");
+      const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: process.env.AUTH_EMAIL_FROM, to: [user.email], subject: "Confirm account deletion", text: url }) });
+      if (!response.ok) throw new Error("Email delivery failed");
+    } }, additionalFields: { inviteCode: {type:"string", required:false, input:false, defaultValue: () => crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase()}, contactPhone: { type: "string", required: false } } },
     socialProviders: {
       ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && {
         google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET },
