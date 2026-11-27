@@ -123,6 +123,27 @@ const catalogSchema = z.object({ name: text(120).optional(), price: z.number().i
 
 export function catalog(owner: string) {
   if (owner === "yespizz") owner = "admin";
+  try {
+    return storedCatalog(owner);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    const sqliteCode = (error as { errcode?: number }).errcode;
+    if (!["EROFS", "EACCES", "EPERM"].includes(code ?? "") &&
+      !(code === "ERR_SQLITE_ERROR" && sqliteCode !== undefined && [8, 14].includes(sqliteCode & 255))) throw error;
+    console.error("Catalog storage unavailable", code, sqliteCode);
+    if (owner !== "admin") throw new CommerceError(503, "This restaurant's menu is temporarily unavailable.");
+    return baseCatalog(new Set()).map(item => ({ ...item, available: false, rating: 0, ratingCount: 0 }));
+  }
+}
+
+function baseCatalog(overridden: Set<string>) {
+  return menu.filter(item => !overridden.has(item.id)).map(item => ({
+    ...catalogSchema.parse({ name: orderLineName(item.id, item.key), price: Math.round(item.price * 100), ingredients: item.ingredients, image: item.image }),
+    id: item.id, addOns: [],
+  }));
+}
+
+function storedCatalog(owner: string) {
   const itemReviews = withCommerce(db => db.prepare(`
     SELECT item.value AS id, AVG(json_extract(r.data,'$.rating')) AS rating, COUNT(*) AS count
     FROM commerce_records r, json_each(r.data,'$.items') item
@@ -141,9 +162,8 @@ export function catalog(owner: string) {
       parsed.data.toppings.includes(topping.id) && topping.available === true && typeof topping.price === "number"
         ? [{ id: topping.id, name: typeof topping.name === "string" ? topping.name : topping.id, price: topping.price }] : []) }] : [];
   });
-  return [...menu.flatMap(item => overrides.some(row => row.id === item.id) ? [] : [{
-    ...catalogSchema.parse({ name: orderLineName(item.id, item.key), price: Math.round(item.price * 100), ingredients: item.ingredients, image: item.image }), id: item.id, addOns: [],
-  }]), ...configured].map(item => ({ ...item, ...(statistics.get(item.id) ?? { rating: 0, ratingCount: 0 }) }));
+  return [...baseCatalog(new Set(overrides.map(row => row.id))), ...configured]
+    .map(item => ({ ...item, ...(statistics.get(item.id) ?? { rating: 0, ratingCount: 0 }) }));
 }
 
 export function quote(input: z.output<typeof quoteSchema>): OrderQuote {
