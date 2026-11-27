@@ -25,6 +25,12 @@ if (mobile) {
   }
 }
 const password = randomBytes(12).toString("base64url");
+const demoMailer = {
+  RESEND_API_KEY: process.env.DEMO_RESEND_API_KEY || "",
+  AUTH_EMAIL_FROM: process.env.DEMO_AUTH_EMAIL_FROM || "",
+};
+if (Boolean(demoMailer.RESEND_API_KEY) !== Boolean(demoMailer.AUTH_EMAIL_FROM))
+  throw Error("Configure both DEMO_RESEND_API_KEY and DEMO_AUTH_EMAIL_FROM for demo mail.");
 const env = {
   NODE_ENV: mobile ? "production" : "development",
   YESPIZZ_MOBILE_DEMO_ORIGIN: mobile ? publicUrls.application : "",
@@ -62,7 +68,8 @@ function launch(app) {
   const args = app === "api" ? ["dist/main.js"] : [next, mobile ? "start" : "dev", "-H", bind, "-p", String(ports[app])];
   const child = spawn(process.execPath, args, {
     cwd: join(root, "apps", app),
-    env: { ...process.env, PORT: String(ports[app]), HOST: host },
+    env: { ...process.env, DEMO_RESEND_API_KEY: "", DEMO_AUTH_EMAIL_FROM: "",
+      ...(app === "api" ? demoMailer : {}), PORT: String(ports[app]), HOST: host },
     stdio: "inherit",
   });
   children.push(child);

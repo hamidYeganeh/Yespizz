@@ -78,6 +78,12 @@ test("provision, rotate invitation, redeem once, sign in and recover staff crede
     400,
   );
   assert.equal((await provision({ email }, true)).status, 409);
+  delete process.env.RESEND_API_KEY;
+  for (const address of [email, "unknown@example.test"]) {
+    const response = await call("business", "forgot-password", { email: address });
+    assert.equal(response.status, 503);
+  }
+  process.env.RESEND_API_KEY = "fixture";
   for (const [role, address, old] of [
     ["admin", adminEmail, process.env.ADMIN_PASSWORD],
     ["business", email, password],

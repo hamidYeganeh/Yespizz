@@ -313,6 +313,8 @@ export async function staffAction(role, action, req) {
     );
   }
   if (action === "forgot-password") {
+    if (!process.env.RESEND_API_KEY || !process.env.AUTH_EMAIL_FROM)
+      return fail("Password reset email is unavailable. Contact your administrator.", 503);
     if (owner) {
       const code = transaction(db, () => {
         const recent = db
@@ -332,6 +334,8 @@ export async function staffAction(role, action, req) {
             "Your password reset code expires in 15 minutes: " + code,
           );
         } catch {
+          db.prepare("DELETE FROM staff_code WHERE owner=? AND purpose='reset' AND hash=?")
+            .run(owner, digest(code));
           console.error("Staff password reset email delivery failed");
         }
     }
