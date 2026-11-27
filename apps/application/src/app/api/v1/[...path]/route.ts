@@ -77,9 +77,10 @@ async function handle(request: Request, path: string[]) {
   }
   if (collection === "checkout" && id === "quote" && !action && method === "POST") return quote(parse(quoteSchema, await jsonBody(request)));
   if (collection === "orders") {
-    const { shopper, guest } = await customer(request, method === "POST" && !id);
+    const { shopper, guest } = await customer(request);
     if (!id && method === "GET") return customerOrders(shopper, guest).map(publicOrder);
     if (!id && method === "POST") {
+      if (!shopper) throw new CommerceError(401, "Sign in to place an order.");
       const input = parse(orderSchema, await jsonBody(request));
       const fingerprint = createHash("sha256").update(JSON.stringify(input)).digest("hex");
       const previous = withCommerce(db => findOrder(db, input.reference));
@@ -130,6 +131,7 @@ async function handle(request: Request, path: string[]) {
         return getRecord(order.owner, "reviews", order.reference);
       }
       if (method === "POST" && action === "review") {
+        if (!shopper) throw new CommerceError(401, "Sign in to review your order.");
         const body = await jsonBody(request);
         if (order.stage !== "delivered") throw new CommerceError(409, "Reviews are available after delivery.");
         const rating = parse(z.number().int().min(1).max(5), body.rating);

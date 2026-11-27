@@ -1,5 +1,7 @@
 "use client";
 
+import { signInHref } from "@/lib/sign-in-return";
+
 import { offerCode, offerAmount, checkoutOfferDraft } from "./discount";
 import type { StoredOrder } from "../orders/order-data";
 import { addTransitionType, useEffect, useRef, useState, useSyncExternalStore, startTransition } from "react";
@@ -271,7 +273,19 @@ export function PaymentFlow() {
 
   async function advance() {
     if (pending) return;
-    if (screen === "items") { show("delivery"); return; }
+    if (screen === "items") {
+      if (!online) { show("delivery"); return; }
+      await handleOnline(async () => {
+        const session = await fetch("/api/v1/auth/session", { cache: "no-store" });
+        if (session.status === 401) {
+          router.push(signInHref("/payment" + window.location.search));
+          return;
+        }
+        if (!session.ok) throw new Error(german ? "Anmeldung derzeit nicht verfügbar." : "Sign-in is temporarily unavailable.");
+        show("delivery");
+      });
+      return;
+    }
     if (online && address && (screen === "delivery" || screen === "payment")) {
       await handleOnline(async () => {
         if (!currentQuote || screen === "delivery") {

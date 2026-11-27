@@ -1,5 +1,7 @@
 "use client";
 
+import { signInReturn, withSignInReturn } from "@/lib/sign-in-return";
+
 import { Button, Input, Label, Separator, TextField } from "@heroui/react";
 import { Effects } from "@animate-ui/react/primitives/effects/effect";
 import { Eye, EyeOff, ChevronLeft, Check, Mail, MessageSquareMore, Smartphone, LockKeyhole, X } from "lucide-react";
@@ -89,7 +91,7 @@ export default function AuthFlow({ oauthFailed = false, initialStep = "welcome" 
 
     const paths = { email: "/auth/sign-up", signin: "/auth/sign-in", forgot: "/auth/forgot-password", password: "/auth/set-password?setup=1", methods: "/auth/methods" };
     if (next in paths && next !== initialStep && (next !== "methods" || initialStep !== "welcome")) {
-      const destination = paths[next as keyof typeof paths];
+      const destination = withSignInReturn(paths[next as keyof typeof paths], signInReturn());
       if (back) router.replace(destination, {transitionTypes:["nav-back"]});
       else router.push(destination);
       return;
@@ -120,7 +122,7 @@ export default function AuthFlow({ oauthFailed = false, initialStep = "welcome" 
     });
   }
   function finish() {
-    router.replace("/");
+    router.replace(signInReturn() || "/");
     router.refresh();
   }
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -160,7 +162,7 @@ export default function AuthFlow({ oauthFailed = false, initialStep = "welcome" 
         <div className="auth-options">
           <h1>Let’s you in</h1>
           {(["Apple", "Google"] as const).map(name => <Button key={name} className="auth-provider" variant="secondary" isDisabled={busy} onPress={() => request(async () => {
-              const result = await authClient.signIn.social({ provider: name === "Apple" ? "apple" : "google", callbackURL: "/", errorCallbackURL: "/auth?error=oauth" });
+              const result = await authClient.signIn.social({ provider: name === "Apple" ? "apple" : "google", callbackURL: signInReturn() || "/", errorCallbackURL: withSignInReturn("/auth?error=oauth", signInReturn()) });
               if (result.error) throw new Error(result.error.message || name + " sign-in could not start. Please try again later.");
             })}>
             <Image src={`/profile/${name.toLowerCase()}.png`} width={24} height={24} alt="" />Continue with {name}
@@ -183,7 +185,7 @@ export default function AuthFlow({ oauthFailed = false, initialStep = "welcome" 
           if (step === "reset") {
             const response = await resetVerifiedPassword(password);
             if (response.error) throw new Error(response.error);
-            router.replace("/auth/sign-in");
+            router.replace(withSignInReturn("/auth/sign-in", signInReturn()));
             return;
           }
           await authRequest("set-password",{password});
@@ -202,7 +204,7 @@ export default function AuthFlow({ oauthFailed = false, initialStep = "welcome" 
                 const setup = !recovering && await needsPassword();
                 setPhase("ok");
                 await new Promise(resolve => setTimeout(resolve, 650));
-                if (recovering) router.push("/auth/set-password");
+                if (recovering) router.push(withSignInReturn("/auth/set-password", signInReturn()));
                 else if (setup) move("phone"); else finish();
               } catch (cause) {
                 setPhase("no");

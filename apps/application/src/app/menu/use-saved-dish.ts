@@ -2,7 +2,8 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { menu } from "./[id]/catalog";
-import { commerceApi } from "@/lib/commerce-client";
+import { commerceApi, CommerceRequestError } from "@/lib/commerce-client";
+import { signInHref } from "@/lib/sign-in-return";
 
 let remote: Set<string> | undefined;
 let pending: Promise<void> | undefined;
@@ -32,12 +33,17 @@ export function useSavedDish(id: string) {
 }
 
 export function toggleSavedDish(id: string) {
-    if (remote) {
-      const saved = remote.has(id);
+    if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1") {
+      const saved = remote?.has(id);
       void commerceApi(`me/favorites/${encodeURIComponent(id)}`, saved ? "DELETE" : "PUT", {}).then(() => {
-        if (saved) remote?.delete(id); else remote?.add(id);
+        if (saved) remote?.delete(id);
+        else if (remote) remote.add(id);
+        else { refreshed = 0; load(); }
         window.dispatchEvent(new Event("dish-saved"));
-      }).catch(() => {});
+      }).catch(error => {
+        if (error instanceof CommerceRequestError && error.status === 401)
+          window.location.assign(signInHref(location.pathname + location.search));
+      });
       return;
     }
     const key = `yespiz-saved-${id}`;

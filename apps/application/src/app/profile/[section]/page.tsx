@@ -7,7 +7,10 @@ import { Favorites } from "../favorites";
 import { Help } from "../help";
 import { ButtonLink } from "../../components/button-link";
 import { BackLink } from "../../components/back-link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { signInHref } from "@/lib/sign-in-return";
+import { authSession } from "../../../../../../packages/staff/api-client";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Icon } from "@repo/icons";
 import { LanguagePicker } from "../language-picker";
@@ -18,6 +21,11 @@ export default async function ProfileSection({ params }: { params: Promise<{ sec
   const { section } = await params;
   const key = section === "account" ? "account" : groups.flat().find(([id]) => id === section)?.[0];
   if (!key) notFound();
+  if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1" &&
+    ["account", "address", "payment", "security", "favorites", "invite"].includes(key) &&
+    !(await authSession("customer", await headers()))) {
+    redirect(signInHref(`/profile/${key}`));
+  }
   const [t, locale] = await Promise.all([
     getTranslations("Application.profile"), getLocale(),
   ]);
