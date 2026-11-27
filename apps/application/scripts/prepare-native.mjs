@@ -16,8 +16,12 @@ if (!process.env.CAPACITOR_SERVER_URL) {
   for (const entry of ["next.config.ts", "tsconfig.json"]) cpSync(join(app, entry), join(staging, entry));
 
   const replace = (file, body) => writeFileSync(join(staging, "src", file), body);
+  for (const file of ["app/menu/[id]/catalog.ts", "app/profile/[section]/page.tsx"]) {
+    const source = readFileSync(join(staging, "src", file), "utf8");
+    replace(file, source.replaceAll("../../../../../../packages/", "../../../../../../../packages/"));
+  }
   rmSync(join(staging, "src/app/api"), { recursive: true, force: true });
-  for (const file of ["commerce.ts", "places.ts"]) rmSync(join(staging, "src/lib", file), { force: true });
+  for (const file of ["commerce.ts", "places.ts", "public-records.ts"]) rmSync(join(staging, "src/lib", file), { force: true });
   replace("app/auth/actions.ts", `
 export async function needsPassword() { return false; }
 export async function registerPassword(_password: string) { return { error: null }; }
