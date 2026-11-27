@@ -82,7 +82,7 @@ async function handle(request: Request, path: string[]) {
   if (collection === "checkout" && id === "quote" && !action && method === "POST") return quote(parse(quoteSchema, await jsonBody(request)));
   if (collection === "orders") {
     const { shopper, guest } = await customer(request);
-    if (!id && method === "GET") return customerOrders(shopper, guest).map(publicOrder);
+    if (!id && method === "GET") return shopper || guest ? customerOrders(shopper, guest).map(publicOrder) : [];
     if (!id && method === "POST") {
       if (!shopper) throw new CommerceError(401, "Sign in to place an order.");
       const input = parse(orderSchema, await jsonBody(request));
@@ -208,11 +208,11 @@ async function handle(request: Request, path: string[]) {
     }
   }
   if (collection === "offers" && !action && method === "GET") {
-    const owner = id || restaurants()[0]?.owner;
+    const owner = id || "yespizz";
     return owner ? records(owner === "yespizz" ? "admin" : owner, "promotions").filter(row => row.active === true).map(({ id, code, amount, minimum, name }) => ({ id, code, amount, minimum, name })) : [];
   }
   if (collection === "content" && !action && method === "GET") {
-    const owner = url.searchParams.get("restaurant") ?? restaurants()[0]?.owner;
+    const owner = url.searchParams.get("restaurant") ?? "yespizz";
     const placement = id ?? "home";
     const scopes = owner ? [owner, "admin"] : ["admin"];
     const now = Date.now();
@@ -227,7 +227,7 @@ async function handle(request: Request, path: string[]) {
     }).slice(0, 10);
   }
   if (collection === "reviews" && !action && method === "GET") {
-    const owner = id ?? restaurants()[0]?.owner;
+    const owner = id ?? "yespizz";
     const item = url.searchParams.get("item");
     if (!owner) return [];
     const reviews = owner === "yespizz" ? businesses().flatMap(shop => records(shop.owner, "reviews")) : records(owner, "reviews");
