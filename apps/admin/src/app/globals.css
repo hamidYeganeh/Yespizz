@@ -1,26 +1,37 @@
 @import "tailwindcss";
+@import "../../../../node_modules/@heroui/styles/dist/heroui.min.css";
+@import "../../../../packages/ui/styles/theme.css";
+@import "../../../../packages/ui/styles/dispatch.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+.admin-login {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 100svh;
+}
+.admin-login-pane {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: clamp(1.25rem, 3vw, 3rem);
+}
+.admin-login-pane header { display: grid; place-items: center; min-height: 3rem; }
+.admin-login-pane footer { text-align: center; font-size: .8rem; font-weight: 600; }
+.admin-login-center { place-self: center; width: min(100%, 24rem); padding-block: 2rem; text-align: center; }
+.admin-login-center h1 { font-size: clamp(1.5rem, 2.1vw, 2.2rem); font-weight: 800; letter-spacing: -.05em; }
+.admin-login-center > p { color: var(--muted); margin: .5rem 0 1.8rem; }
+.admin-login-form { display: grid; gap: .8rem; }
+.admin-login-art { display: grid; place-items: center; overflow: hidden; background: var(--surface-secondary); }
+.admin-login-prints { position: relative; width: 87%; max-width: 52rem; aspect-ratio: 1; }
+.admin-login-prints img { position: absolute; object-fit: cover; border-radius: 3px; }
+.admin-login-prints img:nth-child(1) { left: 0; top: 17%; width: 48%; height: 39%; }
+.admin-login-prints img:nth-child(2) { right: 0; top: 4%; width: 40%; height: 54%; }
+.admin-login-prints img:nth-child(3) { left: 35%; top: 42%; width: 38%; height: 51%; }
+@media (max-width: 719px) {
+  .admin-login { grid-template-columns: 1fr; }
+  .admin-login-art { display: none; }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+.admin-login-pane { background: var(--surface); }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root, [data-theme] {
+  --field-background: var(--surface-tertiary);
 }

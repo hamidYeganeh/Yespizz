@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@import "../../../../node_modules/@heroui/styles/dist/heroui.min.css";
+
+@import "../../../../packages/ui/styles/theme.css";
+@import "../../../../packages/ui/styles/dispatch.css";
+
+.studio {display:grid;grid-template-columns:1fr 1fr;min-height:100svh}
+.studio-pane {min-width:0;display:grid;grid-template-rows:auto 1fr auto;padding:clamp(1rem,3vw,3rem);background:var(--surface)}
+.studio-pane header {position:relative;display:grid;place-items:center;height:3rem}
+.studio-pane header a {position:absolute;inset-inline-start:0;display:grid;place-items:center;border-radius:50%;width:2.75rem;height:2.75rem;background:var(--surface-secondary)}
+.studio-pane footer {text-align:center;font-weight:800;letter-spacing:-.06em;font-size:1.45rem}
+.studio-pane footer span {font-size:.8rem;font-weight:600;letter-spacing:0}
+.studio-center {align-self:center;justify-self:center;width:min(100%,24rem);padding-block:clamp(2rem,5vh,5rem)}
+.studio-form {display:grid;gap:.8rem}
+.studio-form h1 {text-align:center;font-weight:800;letter-spacing:-.05em;font-size:clamp(1.5rem,2.1vw,2.2rem);line-height:1.15;text-wrap:balance}
+.studio-form>p {text-align:center;color:var(--muted);margin-bottom:1.3rem;text-wrap:balance}
+.studio-form small {color:var(--danger)}
+.studio-password {position:relative}
+.studio-password .input {padding-inline-end:3.5rem}
+.studio-password button {position:absolute;right:.45rem;top:50%;translate:0 -50%}
+.studio-choices {display:grid;grid-template-columns:1fr 1fr;gap:.45rem}
+.suggestions {display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap}
+.profile-summary {display:grid;grid-template-columns:auto 1fr;gap:1rem;padding:1rem;border-radius:var(--radius);background:var(--surface-secondary)}
+.profile-summary dt {color:var(--muted)}
+.profile-summary dd {overflow-wrap:anywhere}
+.studio-art {position:sticky;top:0;height:100svh;display:grid;place-items:center;overflow:hidden;background:var(--surface-secondary)}
+.studio-prints {position:relative;width:87%;aspect-ratio:1}
+.studio-prints img {position:absolute;object-fit:cover;border-radius:3px}
+.studio-prints img:nth-child(1) {left:0;top:17%;width:48%;height:39%}
+.studio-prints img:nth-child(2) {right:0;top:4%;width:40%;height:54%}
+.studio-prints img:nth-child(3) {left:35%;top:42%;width:38%;height:51%}
+@media(max-width:719px){.studio{grid-template-columns:1fr}.studio-art{display:none}.studio-pane{padding:max(1.25rem,env(safe-area-inset-top)) 1.25rem}}
+.restaurant-board {min-height:100svh;padding:clamp(1.25rem,4vw,4rem);max-width:90rem;margin:auto}
+.restaurant-board header {display:flex;justify-content:space-between;align-items:center;margin-bottom:clamp(2rem,8vh,6rem)}
+.restaurant-board h1 {font-size:clamp(2rem,4vw,4rem);font-weight:800;letter-spacing:-.055em;overflow-wrap:anywhere}
+.restaurant-board>p,.board-grid p {color:var(--muted)}
+.board-grid {margin-top:2rem;columns:3 15rem;column-gap:1.25rem}
+.board-grid>* {display:block;width:100%;break-inside:avoid;margin:0 0 1.25rem;border-radius:var(--radius)}
+.board-grid section {padding:1.5rem;background:var(--surface-secondary)}
+.board-grid h2 {font-size:1.1rem;font-weight:600;margin-bottom:.75rem}
+.board-grid .button {margin-top:1.25rem}
+.board-grid ul {display:flex;flex-wrap:wrap;gap:.4rem}
+.board-grid li {border-radius:999px;padding:.3rem .7rem;background:var(--surface)}
+.board-placeholder {min-height:11rem}
+.board-placeholder:nth-child(2n) {min-height:17rem}
+
+:root, [data-theme] {
+  --field-background: var(--surface-tertiary);
+}

@@ -1,0 +1,20 @@
+.edge-blur,
+.edge-blur > div {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.edge-blur {
+  background: linear-gradient(to top, var(--background), transparent);
+}
+.edge-blur-top {
+  inset-block-end: -1rem;
+  background: linear-gradient(
+    to bottom,
+    var(--background),
+    color-mix(in oklch, var(--background) 70%, transparent) 28%,
+    color-mix(in oklch, var(--background) 24%, transparent) 63%,
+    color-mix(in oklch, var(--background) 6%, transparent) 84%,
+    transparent
+  );
+}

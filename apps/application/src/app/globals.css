@@ -1,86 +1,63 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-:root,
-.light,
-.default,
-[data-theme="light"],
-[data-theme="default"] {
-  --accent: oklch(90.79% 0.2070 121.10);
-  --accent-foreground: oklch(15% 0.0300 121.10);
-  --background: oklch(97.02% 0.0000 121.10);
-  --border: oklch(90.00% 0.0000 121.10);
-  --danger: oklch(65.32% 0.2328 9.81);
-  --danger-foreground: oklch(99.11% 0 0);
-  --default: oklch(94.00% 0.0000 121.10);
-  --default-foreground: oklch(21.03% 0.0059 121.10);
-  --field-background: oklch(100.00% 0.0000 121.10);
-  --field-border: transparent;
-  --field-foreground: oklch(21.03% 0.0000 121.10);
-  --field-placeholder: oklch(55.17% 0.0000 121.10);
-  --focus: oklch(90.79% 0.2070 121.10);
-  --foreground: oklch(21.03% 0.0000 121.10);
-  --muted: oklch(55.17% 0.0000 121.10);
-  --overlay: oklch(100.00% 0.0000 121.10);
-  --overlay-foreground: oklch(21.03% 0.0000 121.10);
-  --scrollbar: oklch(87.10% 0.0000 121.10);
-  --segment: oklch(100.00% 0.0000 121.10);
-  --segment-foreground: oklch(21.03% 0.0000 121.10);
-  --separator: oklch(92.00% 0.0000 121.10);
-  --success: oklch(73.29% 0.1935 134.88);
-  --success-foreground: oklch(21.03% 0.0059 134.88);
-  --surface: oklch(100.00% 0.0000 121.10);
-  --surface-foreground: oklch(21.03% 0.0000 121.10);
-  --surface-secondary: oklch(95.24% 0.0000 121.10);
-  --surface-secondary-foreground: oklch(21.03% 0.0000 121.10);
-  --surface-tertiary: oklch(93.73% 0.0000 121.10);
-  --surface-tertiary-foreground: oklch(21.03% 0.0000 121.10);
-  --warning: oklch(78.19% 0.1585 56.40);
-  --warning-foreground: oklch(21.03% 0.0059 56.40);
-  --radius: 0.75rem;
-  --field-radius: 0.5rem;
-  --font-inter: "Inter Variable", sans-serif;
-  --font-sans: var(--font-inter);
+@import "@repo/ui/styles/theme.css";
+
+/* Font icons follow the HeroUI button size independently of its label typography. */
+.button--icon-only > .freud-icon {
+  display: inline-grid;
+  place-items: center;
+  font-size: calc(5 * var(--spacing));
+  line-height: 1;
+}
+.button--icon-only.button--sm > .freud-icon { font-size: calc(4 * var(--spacing)); }
+.button--icon-only.button--lg > .freud-icon { font-size: calc(6 * var(--spacing)); }
+
+:root { --icon-button-bg: var(--surface); }
+.theme-toggle {
+  display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%;
+  background: var(--icon-button-bg); color: var(--surface-foreground); cursor: pointer;
+}
+.theme-toggle svg { width: 1.25rem; height: 1.25rem; }
+:root[data-magicui-theme-vt="active"]::view-transition-group(root) { animation-duration: var(--magicui-theme-toggle-vt-duration); }
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+html[data-magicui-theme-vt="active"]::view-transition-old(root) {
+  display: block;
+  z-index: 0;
+}
+html[data-magicui-theme-vt="active"]::view-transition-new(root) {
+  z-index: 1;
+  animation: theme-reveal var(--magicui-theme-toggle-vt-duration) ease-in-out both;
+}
+@keyframes theme-reveal {
+  from { clip-path: var(--magicui-theme-vt-clip-from); }
+  to { clip-path: var(--theme-reveal-end); }
 }
 
-.dark,
-[data-theme="dark"] {
-  color-scheme: dark;
-  --accent: oklch(90.79% 0.2070 121.10);
-  --accent-foreground: oklch(15% 0.0300 121.10);
-  --background: oklch(12.00% 0.0000 121.10);
-  --border: oklch(28.00% 0.0000 121.10);
-  --danger: oklch(59.40% 0.1967 8.70);
-  --danger-foreground: oklch(99.11% 0 0);
-  --default: oklch(27.40% 0.0000 121.10);
-  --default-foreground: oklch(99.11% 0 0);
-  --field-background: oklch(21.03% 0.0000 121.10);
-  --field-border: transparent;
-  --field-foreground: oklch(99.11% 0 0);
-  --field-placeholder: oklch(70.50% 0.0000 121.10);
-  --focus: oklch(90.79% 0.2070 121.10);
-  --foreground: oklch(99.11% 0 0);
-  --muted: oklch(70.50% 0.0000 121.10);
-  --overlay: oklch(21.03% 0.0000 121.10);
-  --overlay-foreground: oklch(99.11% 0 0);
-  --scrollbar: oklch(70.50% 0.0000 121.10);
-  --segment: oklch(39.64% 0.0000 121.10);
-  --segment-foreground: oklch(99.11% 0 0);
-  --separator: oklch(25.00% 0.0000 121.10);
-  --success: oklch(73.29% 0.1935 134.88);
-  --success-foreground: oklch(21.03% 0.0059 134.88);
-  --surface: oklch(21.03% 0.0000 121.10);
-  --surface-foreground: oklch(99.11% 0 0);
-  --surface-secondary: oklch(25.70% 0.0000 121.10);
-  --surface-secondary-foreground: oklch(99.11% 0 0);
-  --surface-tertiary: oklch(27.21% 0.0000 121.10);
-  --surface-tertiary-foreground: oklch(99.11% 0 0);
-  --warning: oklch(82.03% 0.1388 60.41);
-  --warning-foreground: oklch(21.03% 0.0059 56.40);
+/* Neutral icon controls share the dish save button's ground in both themes. */
+body main :is(.button.button--icon-only, .dish-back, .browse-back, .settings-back, .tracking-back),
+body .ratings-page > header a, body .settings-screen > header > a {
+  background-color:var(--icon-button-bg);
+  color:var(--surface-foreground);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
+:root[data-magicui-theme-vt="active"] body, :root[data-magicui-theme-vt="active"] body * { view-transition-name: none !important; }
+
+*, *::before, *::after {box-shadow:none !important;text-shadow:none !important}
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {outline:2px solid var(--focus);outline-offset:2px}
+.list-empty {display:grid;justify-items:center;text-align:center;align-content:center;gap:.85rem;padding:2rem 1rem}
+.list-empty img,.empty-art {width:min(11rem,55%);height:8rem;object-fit:contain;margin-inline:auto}
+@media (prefers-reduced-motion:no-preference) {
+  .profile :is(.settings-list,ul,.settings-form,.preference-panel) > :is(li,label,.sound-row) {animation:profile-enter .25s ease-out backwards}
+  .profile :is(li,label,.sound-row):nth-child(2) {animation-delay:35ms}
+  .profile :is(li,label,.sound-row):nth-child(3) {animation-delay:65ms}
+  .profile :is(li,label,.sound-row):nth-child(n+4) {animation-delay:90ms}
 }
+@keyframes profile-enter {from{opacity:0;transform:translateY(5px)}}
+body, body * { -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
+input, textarea, [contenteditable="true"] { -webkit-user-select:text; user-select:text; }
+
+body [data-sileo-viewport] { max-width:calc(100vw - 2 * var(--page-gutter)); }
+body [data-sileo-toast] { max-width:100%; }
+body [data-sileo-title], body [data-sileo-description] { min-width:0; white-space:normal; overflow-wrap:anywhere; }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Yespiz</string>
+    <string name="title_activity_main">Yespiz</string>
+    <string name="package_name">com.yespiz.application</string>
+    <string name="custom_url_scheme">com.yespiz.application</string>
+</resources>

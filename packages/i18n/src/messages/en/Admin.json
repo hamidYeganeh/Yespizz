@@ -1,5 +1,16 @@
 {
   "home": {
     "title": "Administration"
+  },
+  "login": {
+    "title": "Welcome back",
+    "description": "Sign in to your admin workspace.",
+    "admin": "Admin",
+    "email": "Work email",
+    "password": "Password",
+    "show": "Show",
+    "hide": "Hide",
+    "submit": "Sign in",
+    "unavailable": "Admin sign-in is not configured."
   }
 }

@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Authentication
+
+The application runs Better Auth on Node 24 with a persistent SQLite database. On first use it creates the auth tables. Deploy on a Node host with a persistent disk and set `AUTH_DATABASE_PATH` to a path on that disk. A local file on an ephemeral host will lose accounts.
+
+Copy the settings in `.env.example` into the application's server environment. Set `BETTER_AUTH_URL` to the canonical application origin and `BETTER_AUTH_SECRET` to a stable random secret of at least 32 bytes. Generate one with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`.
+
+- Email verification uses Resend. Set `RESEND_API_KEY` and `AUTH_EMAIL_FROM` to a verified sender. The five-digit code expires after five minutes. After verification a new user can register a password. Returning users can use a code or their password.
+- In Google Cloud, create a web OAuth client and register `<BETTER_AUTH_URL>/api/auth/callback/google`. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+- In Apple Developer, configure a Sign in with Apple Services ID with the HTTPS domain and return URL `<BETTER_AUTH_URL>/api/auth/callback/apple`. Set `APPLE_CLIENT_ID` to the Services ID and `APPLE_CLIENT_SECRET` to its signed client-secret JWT. Rotate it before expiry. Apple requires a registered HTTPS domain for the browser callback.
+
+Restart the application after setting provider credentials. Accounts, sessions and verification records are stored server-side. Keep the database, its backups and the server environment private.

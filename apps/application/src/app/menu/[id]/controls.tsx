@@ -1,262 +1,134 @@
 "use client";
 
-import { useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { Button } from "@heroui/react/button";
+import { Children, isValidElement } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { A11y, Keyboard } from "swiper/modules";
+import "swiper/css";
+import { MenuCard } from "../menu-card";
+import { useSavedDish } from "../use-saved-dish";
+import { RollingCounter } from "../../components/rolling-counter";
+import { Like } from "../../components/Like";
+import { SlidingNumber } from "@animate-ui/react/primitives/texts/sliding-number";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Icon } from "@repo/icons";
+import { ButtonLink } from "../../components/button-link";
+import { BackLink } from "../../components/back-link";
+import { useRouter } from "next/navigation";
+import { readBasket } from "../../payment/cart";
+import { BottomNavigation } from "@animate-ui/react/primitives/bottom-navigation";
 import { Button as PressButton } from "@animate-ui/react/primitives/buttons/button";
 import {
   ReducedMotionConfig,
   spring,
   transition,
   useTempoTransition,
+  useShouldReduceMotion,
 } from "@animate-ui/react/utils/motion";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { menu, type MenuItem } from "./catalog";
 
-function ProgressiveBlur({ direction }: { direction: "top" | "bottom" }) {
-  const layers = 8;
-  return (
-    <div aria-hidden="true" className="edge-blur">
-      {Array.from({ length: layers }, (_, index) => {
-        const stops = [0, 1, 2, 3].map((offset) => {
-          const color = offset === 1 || offset === 2 ? "black" : "transparent";
-          return `${color} ${((index + offset) / (layers + 1)) * 100}%`;
-        });
-        const mask = `linear-gradient(to ${direction}, ${stops.join(", ")})`;
-        const filter = `blur(${index * 0.25}px)`;
-        return (
-          <div
-            key={index}
-            style={{
-              maskImage: mask,
-              WebkitMaskImage: mask,
-              backdropFilter: filter,
-              WebkitBackdropFilter: filter,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
+import { ProgressiveBlur } from "./progressive-blur";
+
+export function DishCarousel({label, children}: {label:string; children:ReactNode}) {
+  return <Swiper className="dish-carousel" aria-label={label} modules={[A11y,Keyboard]} keyboard={{enabled:true}} slidesPerView="auto" spaceBetween={12} watchOverflow>
+    {Children.toArray(children).map(child => <SwiperSlide key={isValidElement(child) ? child.key : String(child)}>{child}</SwiperSlide>)}
+  </Swiper>;
 }
 
-function BasketIcon() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m3 10 2.5 10h13L21 10M1 9h22M5 9l4-6m10 6-4-6m-5 12h4" />
-    </svg>
-  );
-}
-
-export function Recommendation({ item }: { item: MenuItem }) {
+export function Recommendation({ currentId }: { currentId: string }) {
   const t = useTranslations("Application.menu");
-  const [saved, setSaved] = useState(false);
-  const [all, setAll] = useState(false);
   return (
     <section className="recommendations">
       <header>
-        <h2>{t("recommend")} 😍</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onPress={() => setAll(!all)}
-          aria-expanded={all}
-        >
-          {t(all ? "less" : "seeAll")}
-        </Button>
+        <h2>{t("recommend")}</h2>
+        <ButtonLink href="/menu?recommended=true">{t("seeAll")}</ButtonLink>
       </header>
-      {(all
-        ? [item, ...menu.filter((entry) => entry.id !== item.id)]
-        : [item]
-      ).map((entry) => (
-        <div key={entry.id} className="recommendation">
-          <Link href={`/menu/${entry.id}`}>
-            <Image src={entry.image} width={118} height={118} alt="" />
-            <div>
-              <b>{t(entry.key)}</b>
-              <span>
-                <i>★</i> {entry.rating}（{entry.ratings}）
-              </span>
-              <strong>€{entry.price}</strong>
-            </div>
-          </Link>
-          {entry.id === item.id && (
-            <>
-              <small>{t("promo")}</small>
-              <Button
-                size="sm"
-                isIconOnly
-                variant="secondary"
-                className="favorite"
-                aria-label={t("favorite")}
-                aria-pressed={saved}
-                onPress={() => setSaved(!saved)}
-              >
-                {saved ? "♥" : "♡"}
-              </Button>
-            </>
-          )}
-        </div>
-      ))}
+      <DishCarousel label={t("recommend")}>
+        {menu.filter(entry => entry.id !== currentId).slice(0,5).map(entry => <MenuCard key={entry.id} item={entry} hideSave />)}
+      </DishCarousel>
     </section>
   );
 }
 
-type Basket = Record<string, number>;
-function readBasket(): Basket {
-  try {
-    const stored = JSON.parse(localStorage.getItem("yespiz-basket") || "{}");
-    return Object.fromEntries(
-      menu.map(({ id }) => [
-        id,
-        Number.isSafeInteger(stored?.[id]) && stored[id] > 0 ? stored[id] : 0,
-      ]),
-    );
-  } catch {
-    return {};
-  }
+function subscribeToScroll(notify: () => void) {
+  window.addEventListener("scroll", notify, { passive: true });
+  return () => window.removeEventListener("scroll", notify);
 }
 
-export function OrderControls({ item }: { item: MenuItem }) {
+const pastOrderThreshold = () => window.scrollY > 140;
+const initiallyHidden = () => false;
+
+export function OrderControls({
+  item,
+  children,
+}: {
+  item: MenuItem;
+  children: ReactNode;
+}) {
   const t = useTranslations("Application.menu");
+  const backLabel = useTranslations("Application.profile")("back");
+  const [saved, toggleSaved] = useSavedDish(item.id);
+  const showOrderBar = useSyncExternalStore(subscribeToScroll, pastOrderThreshold, initiallyHidden);
   const [quantity, setQuantity] = useState(0);
-  const [basket, setBasket] = useState<Basket>({});
-  const dialog = useRef<HTMLDialogElement>(null);
+  const router = useRouter();
+  const navigating = useRef(false);
   const buy = useRef<HTMLButtonElement>(null);
   const morph = useTempoTransition(spring.morph);
+  const reduce = useShouldReduceMotion();
   const swap = useTempoTransition(transition.swap);
-  function openBasket(add: boolean) {
+  function openBasket() {
+    if (navigating.current) return;
     const next = readBasket();
-    if (add) {
-      next[item.id] = (next[item.id] || 0) + quantity;
-      localStorage.setItem("yespiz-basket", JSON.stringify(next));
-      setQuantity(0);
-    }
-    setBasket(next);
-    dialog.current?.showModal();
+    next[item.id] = (next[item.id] || 0) + quantity;
+    localStorage.setItem("yespiz-basket", JSON.stringify(next));
+    navigating.current = true;
+    router.push("/payment");
   }
   return (
-    <>
+    <main className="dish">
       <nav className="dish-toolbar">
         <ProgressiveBlur direction="top" />
-        <Link href="/" className="dish-back" aria-label={t("back")}>
-          ←
-        </Link>
-        <Button
-          isIconOnly
-          className="basket-trigger"
-          aria-label={t("basket")}
-          onPress={() => openBasket(false)}
-        >
-          <BasketIcon />
-        </Button>
+        <BackLink href="/" parents={["/menu", "/profile/favorites", "/payment", ...menu.filter(entry => entry.id !== item.id).map(entry => "/menu/" + entry.id)]} className="dish-back" aria-label={backLabel}>
+          <Icon name="chevron-left" />
+        </BackLink>
+        <Like liked={saved} onToggle={toggleSaved} label={t("saveDish")} />
       </nav>
+      {children}
       <ReducedMotionConfig>
-        <div className="order-anchor">
+        <BottomNavigation layoutRoot className="order-anchor" inert={!showOrderBar} aria-hidden={!showOrderBar} initial={false} animate={{y:showOrderBar ? 0 : "125%",opacity:showOrderBar ? 1 : 0}} transition={reduce ? {duration:0} : {type:"spring", stiffness:420, damping:29, mass:.85}} aria-label={t("buy")}>
           <ProgressiveBlur direction="bottom" />
-          <motion.div
-            layout
-            transition={morph}
-            className={quantity ? "order expanded" : "order"}
-          >
-            <motion.div
-              layout="position"
-              initial={false}
-              animate={{ opacity: 1 }}
-              transition={swap}
-              className="order-inner"
-            >
+          <motion.div initial={false}
+            transition={reduce ? { duration: 0 } : morph} className={quantity ? "order expanded" : "order"}
+            style={{ borderRadius: 32 }}>
+            <AnimatePresence initial={false}>
               {quantity > 0 && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={swap}
-                    className="total"
-                  >
+                <motion.div key="details" className="order-reveal"
+                  initial={{ width: 0, opacity: 0 }} animate={{ width: "auto", opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }} transition={reduce ? { duration: 0 } : { ...morph, opacity: swap }}>
+                  <div className="order-details">
+                  <div className="total">
                     <small>{t("total")}</small>
-                    <strong>€{quantity * item.price}</strong>
-                  </motion.div>
-                  <PressButton
-                    className="step"
-                    aria-label={t("decrease")}
-                    onClick={() => setQuantity((q) => Math.max(0, q - 1))}
-                  >
-                    −
-                  </PressButton>
-                  <output aria-live="polite">{quantity}</output>
-                  <PressButton
-                    className="step plus"
-                    aria-label={t("increase")}
-                    onClick={() => setQuantity((q) => q + 1)}
-                  >
-                    +
-                  </PressButton>
-                </>
+                    <strong>€<SlidingNumber number={quantity * item.price} initiallyStable /></strong>
+                  </div>
+                  <RollingCounter start={quantity} value={quantity} lessLabel={t("decrease")} moreLabel={t("increase")}
+                    label={t("quantity")} onChange={next => {
+                      if (!next) buy.current?.focus();
+                      setQuantity(next);
+                    }} />
+                  </div>
+                </motion.div>
               )}
-              <PressButton
-                ref={buy}
-                aria-expanded={quantity > 0}
-                className="buy"
-                onClick={() => (quantity ? openBasket(true) : setQuantity(1))}
-              >
-                {quantity ? (
-                  <BasketIcon />
-                ) : (
-                  <span className="add-mark">＋</span>
-                )}
-                {t("buy")}
-                {!quantity && <strong>€{item.price}</strong>}
-              </PressButton>
-            </motion.div>
+            </AnimatePresence>
+            <PressButton style={{ borderRadius: 26 }} ref={buy} aria-expanded={quantity > 0} className="buy"
+              onClick={() => quantity ? openBasket() : setQuantity(1)}>
+              <Icon name={quantity ? "shopping-bag" : "plus"} />
+              {t("buy")}
+              <AnimatePresence initial={false}>{!quantity && <motion.strong initial={{ width: 0, opacity: 0 }} animate={{ width: "auto", opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={reduce ? {duration: 0} : morph}>€{item.price}</motion.strong>}</AnimatePresence>
+            </PressButton>
           </motion.div>
-        </div>
+        </BottomNavigation>
       </ReducedMotionConfig>
-      <dialog
-        className="basket-dialog"
-        ref={dialog}
-        aria-labelledby="basket-heading"
-        onClose={() => buy.current?.focus()}
-      >
-        <h2 id="basket-heading">{t("basket")}</h2>
-        {menu.some((entry) => basket[entry.id]) ? (
-          <>
-            {menu
-              .filter((entry) => basket[entry.id])
-              .map((entry) => (
-                <p key={entry.id}>
-                  {basket[entry.id]} × {t(entry.key)}{" "}
-                  <b>€{basket[entry.id] * entry.price}</b>
-                </p>
-              ))}
-            <p>
-              <strong>{t("total")}</strong>
-              <b>
-                €
-                {menu.reduce(
-                  (sum, entry) => sum + (basket[entry.id] || 0) * entry.price,
-                  0,
-                )}
-              </b>
-            </p>
-          </>
-        ) : (
-          <p>{t("empty")}</p>
-        )}
-        <Button onPress={() => dialog.current?.close()}>{t("close")}</Button>
-      </dialog>
-    </>
+    </main>
   );
 }

@@ -1,0 +1,7 @@
+{
+  "name": "@repo/icons",
+  "version": "0.0.0",
+  "private": true,
+  "exports": { ".": "./icon.tsx", "./styles.css": "./styles.css" },
+  "peerDependencies": { "react": "^19" }
+}

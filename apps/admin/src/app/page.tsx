@@ -1,21 +1,31 @@
-import {changeLocale} from "@repo/i18n/actions";
-import {getLocale, getTranslations} from "next-intl/server";
+import Image from "next/image";
+import { getTranslations } from "next-intl/server";
+import { LoginForm } from "./login-form";
+
+const photos = ["auth-dining.webp", "auth-pizza.webp", "auth-chef.webp"];
 
 export default async function Home() {
-  const [locale, t, language] = await Promise.all([
-    getLocale(), getTranslations("Admin.home"), getTranslations("Language")
-  ]);
+  const t = await getTranslations("Admin.login");
+
   return (
-    <main className="mx-auto max-w-xl px-6 py-16">
-      <h1 className="text-3xl font-semibold">{t("title")}</h1>
-      <form action={changeLocale} className="mt-8 flex flex-wrap items-center gap-3">
-        <label htmlFor="locale">{language("label")}</label>
-        <select id="locale" name="locale" defaultValue={locale} className="rounded-md border px-3 py-2">
-          <option value="en" lang="en">English</option>
-          <option value="nl-AT" lang="nl">Nederlands</option>
-        </select>
-        <button type="submit" className="rounded-md border px-3 py-2">{language("apply")}</button>
-      </form>
+    <main className="admin-login">
+      <section className="admin-login-pane">
+        <header><Image src="/studio/wordmark.png" alt="Yespiz" width={105} height={35} /></header>
+        <div className="admin-login-center">
+          <h1>{t("title")}</h1>
+          <p>{t("description")}</p>
+          <LoginForm />
+        </div>
+        <footer><a href="/dashboard">Order dashboard</a></footer>
+      </section>
+      <aside className="admin-login-art" aria-hidden="true">
+        <div className="admin-login-prints">
+          {photos.map(photo => (
+            <Image key={photo} src={"/studio/" + photo} alt="" width={450} height={450}
+              sizes="(min-width: 720px) 24vw, 0px" />
+          ))}
+        </div>
+      </aside>
     </main>
   );
 }

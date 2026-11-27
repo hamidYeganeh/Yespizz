@@ -1,0 +1,4 @@
+:is(.geo-map,.tracking-tiles) .leaflet-tile-pane { filter: grayscale(.95) contrast(.74) brightness(1.16); }
+.dark :is(.geo-map,.tracking-tiles) .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) brightness(1.5) contrast(0.76);
+}

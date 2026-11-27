@@ -1,0 +1,11 @@
+@font-face {
+  font-family: "Freud Duoline";
+  src: url("./freud-duoline.woff2") format("woff2");
+}
+.freud-icon {
+  color: inherit;
+  display: inline-block;
+  font: normal 1em/1 "Freud Duoline";
+  letter-spacing: normal;
+  vertical-align: -.12em;
+}

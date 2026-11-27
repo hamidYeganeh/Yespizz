@@ -1,0 +1,217 @@
+.dispatch {
+  max-width: 76rem;
+  margin: auto;
+  padding: clamp(1rem, 4vw, 3rem);
+  display: grid;
+  gap: 1.3rem;
+  color: var(--foreground);
+}
+.dispatch header,
+.dispatch-tabs,
+.dispatch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.dispatch h1 {
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 800;
+}
+.dispatch h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.dispatch small {
+  display: block;
+  color: var(--muted);
+}
+.dispatch-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+.dispatch .card {
+  background: var(--surface);
+  color: var(--surface-foreground);
+  padding: 1rem;
+  border-radius: 1.25rem;
+}
+.dispatch-metrics strong {
+  font-size: 1.6rem;
+}
+.dispatch-map {
+  height: clamp(18rem, 48vh, 32rem);
+  border-radius: 1.4rem;
+  isolation: isolate;
+}
+.dispatch .dispatch-row {
+  flex-direction: row;
+  margin-top: 0.55rem;
+}
+.dispatch-row > div {
+  flex: 1;
+}
+.dispatch-analytics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+}
+.dispatch-analytics .card {
+  min-width: 0;
+}
+.dispatch-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  font-size: 0.8rem;
+}
+.dispatch-legend i {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+}
+.dispatch section header input {
+  max-width: 18rem;
+}
+
+.operations-shell {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, sans-serif);
+}
+.operations-rail {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 28px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.operations-rail b,
+.operations-rail button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.operations-rail b {
+  font-size: 26px;
+  margin-bottom: 30px;
+}
+.operations-rail b svg {
+  color: var(--accent);
+}
+.operations-rail small,
+.dispatch header small {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.operations-rail button {
+  padding: 12px;
+  border-radius: 10px;
+  text-align: left;
+}
+.operations-rail button:hover {
+  background: var(--surface-secondary);
+}
+.operations-rail svg {
+  width: 19px;
+}
+.operations-shell .dispatch {
+  width: 100%;
+  align-content: start;
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 40px);
+}
+.operations-bar {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.operations-bar a {
+  color: var(--accent);
+}
+.operations-shell .card {
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+}
+.operations-shell .dispatch-row {
+  display: flex;
+}
+.operations-shell .dispatch-tabs button,
+.operations-shell .dispatch-row button {
+  padding: 8px 14px;
+  border-radius: 9px;
+  background: var(--surface-secondary);
+  color: var(--foreground);
+}
+.operations-shell .dispatch-tabs [aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.operations-shell input {
+  padding: 10px 14px;
+  background: var(--field-background);
+  border-radius: 8px;
+  color: var(--foreground);
+}
+.operations-shell .dispatch-map {
+  min-height: 300px;
+}
+.operations-shell .dispatch-analytics {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+}
+@media (max-width: 900px) {
+  .operations-shell {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .operations-rail {
+    overflow: hidden;
+    padding: 20px 9px;
+  }
+  .operations-rail button,
+  .operations-rail b {
+    font-size: 0;
+    white-space: nowrap;
+  }
+  .operations-rail small {
+    display: none;
+  }
+  .operations-rail svg {
+    flex: none;
+  }
+  .operations-shell .dispatch-analytics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dispatch-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.dispatch-empty p {
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+}
+.dispatch-empty svg {
+  color: var(--accent);
+}
+

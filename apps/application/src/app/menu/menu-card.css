@@ -1,0 +1,63 @@
+.menu-card {
+  --card-radius: 2rem;
+  --bag-size: calc(12 * var(--spacing));
+  --cutout: calc(var(--bag-size) + 5 * var(--spacing));
+  --lift: calc(6 * var(--spacing));
+  display: grid;
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: var(--card-radius);
+  color: var(--surface-foreground);
+}
+.menu-card::before {
+  content: "";
+  position: absolute;
+  inset: var(--lift) 0 0;
+  z-index: -1;
+  border-radius: var(--card-radius) var(--card-radius) 0 var(--card-radius);
+  background: var(--menu-tile-surface, var(--surface-secondary));
+  background-image: radial-gradient(color-mix(in srgb, var(--foreground) 8%, transparent) 1px, transparent 1px);
+  background-size: 12px 12px;
+  mask: linear-gradient(#000 0 0) top / 100% calc(100% - var(--cutout)) no-repeat,
+    linear-gradient(#000 0 0) left / calc(100% - var(--cutout)) 100% no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 52'%3E%3Cpath d='M0 0H52C52 9 47 13 39 13H34C21 13 13 21 13 34V39C13 47 9 52 0 52Z'/%3E%3C/svg%3E") bottom right / var(--cutout) var(--cutout) no-repeat;
+}
+.menu-card-link { display: grid; min-width: 0; padding: 0 var(--page-gutter) var(--page-gutter); align-content: start; border-radius: inherit; color: inherit; }
+.menu-card-photo { width: 100%; max-width: 14rem; justify-self: center; aspect-ratio: 1; }
+.menu-card-photo img { display: block; width: 100%; height: 100%; object-fit: contain; filter:none; }
+.menu-card-copy { display: grid; grid-template-columns: minmax(0,1fr); min-width: 0; align-content: start; gap: var(--card-gap); padding: var(--card-gap) 0 0; }
+.menu-card-copy strong { font-size: clamp(1rem, 4vw, 1.3rem); font-weight: 800; letter-spacing: -.035em; line-height: 1.15; }
+.menu-card-copy strong > span { max-width: 100%; vertical-align: top; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-card-copy p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font-size: var(--text-sm); line-height: 1.35; }
+.menu-card-copy b { white-space: nowrap; margin-top: var(--card-gap); padding-inline-end: var(--cutout); font-size: var(--text-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.menu-card-bag { position: absolute; right: 0; bottom: 0; width: var(--bag-size); height: var(--bag-size); font-size: var(--text-xl); display: grid; place-items: center; border-radius: 50%; background: var(--menu-tile-surface, var(--surface-secondary)); color: var(--surface-foreground); border: 1px solid var(--border); }
+.menu-card .menu-card-save { position: absolute; top: var(--lift); right: var(--spacing); border-radius: 50%; background: var(--surface); color: var(--surface-foreground); }
+.menu-card .menu-card-save[aria-pressed=true] { color: var(--danger); }
+.menu-card-wide { --lift: var(--spacing); }
+.menu-card-wide .menu-card-link { grid-template-columns: clamp(5rem,25vw,7.5rem) minmax(0,1fr); align-items: center; gap: var(--page-gutter); padding: var(--card-gap) var(--page-gutter); }
+.menu-card-wide .menu-card-copy { padding: var(--card-gap) var(--cutout) var(--card-gap) 0; gap: var(--spacing); }
+.menu-card-wide .menu-card-copy b { margin-top: var(--spacing); padding: 0; }
+.menu-card-wide .menu-card-save { top: var(--card-gap); right: var(--card-gap); }
+.menu-card-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.menu-card:has([data-menu-pending])::before,
+.checkout .basket-product:has([data-menu-pending]) {
+  background-image: linear-gradient(110deg, transparent 32%, color-mix(in srgb, var(--foreground) 14%, transparent) 50%, transparent 68%);
+  background-size: 220% 100%;
+  background-position: 50% 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .menu-card:has([data-menu-pending])::before,
+  .checkout .basket-product:has([data-menu-pending]) {
+    animation: menu-card-shimmer 1.15s ease-in-out infinite;
+  }
+  @keyframes menu-card-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: 0 0; }
+  }
+}

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
+    "./locales": "./src/locales.ts",
     "./request": "./src/request.ts",
     "./actions": "./src/actions.ts"
   },

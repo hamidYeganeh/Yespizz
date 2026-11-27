@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="112" viewBox="0 0 144 112" fill="none" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+ <g transform="rotate(-18 27 26)"><path d="M10 16q16-10 33 0L26 45zM12 20q15-8 29 0"/><circle cx="22" cy="25" r="2.5"/><circle cx="30" cy="31" r="2"/></g>
+ <g transform="translate(89 12) rotate(14)"><path d="M0 18q2-14 16-14t16 14zM0 22l7 3 7-3 8 3 10-3M1 28h30q-1 5-6 5H7q-5 0-6-5zM10 12l2-1m8 0 2 1"/></g>
+ <g transform="translate(56 70) rotate(14)"><path d="M0 12q11 1 17-10 4-5 9-1 5 7-5 13Q9 21 0 12zM24 0q0-6 5-8"/></g>
+</svg>

@@ -1,0 +1,39 @@
+:root {
+  color-scheme: dark;
+  --background: #181818;
+  --surface: #232323;
+  --muted: #b7b7b7;
+  --accent: #cef629;
+  --ink: #151810;
+  font: 16px system-ui, sans-serif;
+  background: var(--background);
+  color: #fafafa;
+}
+* { box-sizing: border-box; }
+body { max-width: 44rem; margin: auto; }
+header { display: flex; justify-content: space-between; align-items: center; padding: max(1rem, env(safe-area-inset-top)) 1rem 1rem; }
+header img { width: 6rem; height: 3rem; object-fit: contain; }
+header span, p { color: var(--muted); }
+main { padding: 0 1rem calc(6rem + env(safe-area-inset-bottom)); }
+h1, h2, p { margin: 0 0 .65rem; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1rem; }
+button, a, input { font: inherit; }
+button, nav a { border: 0; border-radius: 2rem; padding: .65rem .9rem; font-weight: 700; }
+button { background: var(--accent); color: var(--ink); }
+button.secondary { background: var(--background); color: inherit; }
+nav { position: fixed; inset: auto 0 0; margin: auto; max-width: 44rem; display: flex; justify-content: center; gap: .25rem; background: var(--surface); padding: .55rem .5rem max(.55rem, env(safe-area-inset-bottom)); }
+nav a { text-decoration: none; color: inherit; }
+nav a[aria-current] { background: var(--accent); color: var(--ink); }
+.hero { margin: .25rem 0 1.25rem; min-height: 13rem; border-radius: 1.7rem; padding: 1.25rem; background: var(--accent); color: var(--ink); position: relative; overflow: hidden; display: grid; align-content: center; justify-items: start; }
+.hero img { position: absolute; width: 58%; right: -12%; bottom: -18%; pointer-events: none; }
+.hero h1, .hero button { z-index: 1; }
+.hero h1 { font-size: clamp(2rem, 8vw, 3.1rem); line-height: 1; }
+.hero button { background: var(--ink); color: white; }
+input { width: 100%; border: 1px solid #505050; border-radius: 1rem; padding: .8rem; background: var(--surface); color: inherit; margin-bottom: .75rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .6rem; }
+.card { background: var(--surface); border-radius: 1.2rem; padding: .85rem; margin-bottom: .65rem; overflow-wrap: anywhere; }
+.card img { width: 100%; height: 6.5rem; object-fit: contain; }
+.line { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.card p { font-size: .875rem; }
+form button { width: 100%; }
