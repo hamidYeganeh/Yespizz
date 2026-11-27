@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getAuth } from './customer-auth.js';
+import { getAuth, handleCustomerAuth } from './customer-auth.js';
 
 const paths: Record<string, string> = {
   'sign-in': 'sign-in/email',
@@ -14,7 +14,7 @@ const paths: Record<string, string> = {
 @Injectable()
 export class CustomerAuthService {
   async legacy(request: Request) {
-    return (await getAuth()).handler(request);
+    return handleCustomerAuth(request);
   }
 
   async run(action: string, request: Request) {
@@ -35,6 +35,15 @@ export class CustomerAuthService {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object')
       return new Response(null, { status: 400 });
+    if (
+      (action === 'sign-up' || action === 'forgot-password') &&
+      (!process.env.RESEND_API_KEY || !process.env.AUTH_EMAIL_FROM)
+    ) {
+      return Response.json(
+        { message: 'Email codes are temporarily unavailable. Please try again later.' },
+        { status: 503 },
+      );
+    }
     if (action === 'set-password') {
       const session = await auth.api.getSession({ headers: request.headers });
       if (!session?.user.emailVerified)
@@ -71,7 +80,7 @@ export class CustomerAuthService {
     }
     if (!Object.hasOwn(paths, action))
       return new Response(null, { status: 404 });
-    return auth.handler(
+    return handleCustomerAuth(
       new Request(new URL('/api/auth/' + paths[action], request.url), {
         method: 'POST',
         headers: request.headers,

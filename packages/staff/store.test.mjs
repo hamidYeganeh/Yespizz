@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adminEmail, provision, staffAction, staffStore } from "../../apps/api/src/staff-auth.mjs";
+import { adminEmail, manageTeam, provision, staffAction, staffStore } from "../../apps/api/src/staff-auth.mjs";
 
 test("provision, rotate invitation, redeem once, sign in and recover staff credentials", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "yespiz-staff-"));
@@ -58,6 +58,12 @@ test("provision, rotate invitation, redeem once, sign in and recover staff crede
   );
   const first = await (await provision(restaurant, false)).json();
   assert.equal(first.delivered, true);
+  const business = await staffStore("business");
+  const owner = business.db.prepare("SELECT id FROM user WHERE email=?").get(email).id;
+  const member = { name: "Cook", email: "cook@example.test", role: "kitchen" };
+  assert.deepEqual(await (await manageTeam(owner, "POST", member)).json(), { delivered: true });
+  assert.deepEqual(messages.at(-1).to, [member.email]);
+  assert.equal(messages.at(-1).subject, "Your Yespizz team invitation");
   assert.equal((await provision(restaurant, false)).status, 409);
   const second = await (await provision({ email }, true)).json();
   assert.ok(messages.at(-1).text.includes(second.oneTimePassword));

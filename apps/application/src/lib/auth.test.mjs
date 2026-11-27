@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { getAuth } from "../../../api/src/customer-auth.ts";
+import { getAuth, handleCustomerAuth } from "../../../api/src/customer-auth.ts";
 
 test("customer verifies email, sets password, logs in and resets password", async (t) => {
   Object.assign(process.env, {
@@ -17,10 +17,12 @@ test("customer verifies email, sets password, logs in and resets password", asyn
     RESEND_API_KEY: "fixture",
     AUTH_EMAIL_FROM: "yespiz@example.test",
   });
-  let code;
+  let code, message;
   t.mock.method(globalThis, "fetch", async (url, init) => {
     assert.equal(url, "https://api.resend.com/emails");
-    code = JSON.parse(init.body).text.match(/\b\d{5}\b/)[0];
+    message = JSON.parse(init.body);
+    assert.deepEqual(message.to, ["customer@example.test"]);
+    code = message.text.match(/\b\d{5}\b/)?.[0];
     return new Response("{}");
   });
   const { api } = await getAuth(),
@@ -45,5 +47,15 @@ test("customer verifies email, sets password, logs in and resets password", asyn
     body: { email, otp: code, password: password + "2" },
   });
   await assert.rejects(api.signInEmail({ body: { email, password } }));
-  await api.signInEmail({ body: { email, password: password + "2" } });
+  const signedIn = await api.signInEmail({ body: { email, password: password + "2" }, asResponse: true });
+  const freshCookie = signedIn.headers.getSetCookie().map(raw => raw.split(";")[0]).join("; ");
+  await api.deleteUser({ headers: { cookie: freshCookie }, body: { callbackURL: "/" } });
+  assert.equal(message.subject, "Confirm account deletion");
+  assert.equal(new URL(message.text).pathname, "/api/auth/delete-user/callback");
+  globalThis.fetch = async () => new Response(null, { status: 403 });
+  const rejected = await handleCustomerAuth(new Request("http://localhost:7031/api/auth/email-otp/send-verification-otp", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, type: "sign-in" }),
+  }));
+  assert.equal(rejected.status, 503);
 });

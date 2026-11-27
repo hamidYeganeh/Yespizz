@@ -5,6 +5,42 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { eraseCustomer } from './customer-data.mjs';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+const mailAttempt = new AsyncLocalStorage<{ failed: boolean }>();
+
+async function sendCustomerMail(email: string, subject: string, text: string) {
+  const { RESEND_API_KEY, AUTH_EMAIL_FROM } = process.env;
+  try {
+    if (!RESEND_API_KEY || !AUTH_EMAIL_FROM) throw Error('Email delivery is not configured');
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: AUTH_EMAIL_FROM, to: [email], subject, text }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw Error('Email delivery failed');
+  } catch (error) {
+    const attempt = mailAttempt.getStore();
+    if (attempt) attempt.failed = true;
+    throw error;
+  }
+}
+
+export async function handleCustomerAuth(request: Request) {
+  const auth = await getAuth();
+  const path = new URL(request.url).pathname;
+  // Recovery stays account-neutral. Sign-in sends codes to both new and returning customers.
+  const checkDelivery = path.endsWith('/delete-user') || (path.endsWith('/send-verification-otp') &&
+    (await request.clone().json().catch(() => null))?.type === 'sign-in');
+  if (!checkDelivery) return auth.handler(request);
+  return mailAttempt.run({ failed: false }, async () => {
+    const response = await auth.handler(request);
+    return mailAttempt.getStore()?.failed ? Response.json(
+      { message: 'The email could not be sent. Please try again later.' }, { status: 503 },
+    ) : response;
+  });
+}
 
 async function initialize() {
   const file = resolve(
@@ -44,22 +80,7 @@ async function initialize() {
       deleteUser: {
         enabled: true,
         async sendDeleteAccountVerification({ user, url }) {
-          if (!process.env.RESEND_API_KEY || !process.env.AUTH_EMAIL_FROM)
-            throw new Error('Email delivery is not configured');
-          const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: process.env.AUTH_EMAIL_FROM,
-              to: [user.email],
-              subject: 'Confirm account deletion',
-              text: url,
-            }),
-          });
-          if (!response.ok) throw new Error('Email delivery failed');
+          await sendCustomerMail(user.email, 'Confirm account deletion', url);
         },
       },
       additionalFields: {
@@ -94,22 +115,8 @@ async function initialize() {
         otpLength: 5,
         storeOTP: 'hashed',
         async sendVerificationOTP({ email, otp }) {
-          if (!process.env.RESEND_API_KEY || !process.env.AUTH_EMAIL_FROM)
-            throw new Error('Email delivery is not configured');
-          const result = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: process.env.AUTH_EMAIL_FROM,
-              to: [email],
-              subject: 'Your Yespiz verification code',
-              text: `Your verification code is ${otp}. It expires in five minutes.`,
-            }),
-          });
-          if (!result.ok) throw new Error('Email delivery failed');
+          await sendCustomerMail(email, 'Your Yespiz verification code',
+            `Your verification code is ${otp}. It expires in five minutes.`);
         },
       }),
     ],
