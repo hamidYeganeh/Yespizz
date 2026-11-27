@@ -1,7 +1,3 @@
-import { getAuth } from "@/lib/auth";
-
-export const runtime = "nodejs";
-async function handle(request: Request) {
-  return (await getAuth()).handler(request);
-}
-export { handle as GET, handle as POST };
+import { proxyAuth } from "../../../../../../../packages/staff/api-client";
+async function forward(request: Request) { return proxyAuth(request); }
+export { forward as GET, forward as POST };

@@ -16,9 +16,9 @@ The application loads Inter and the HeroUI theme in its root layout. Its global 
 
 ### Staff accounts and password recovery
 
-The admin account is hamidyeganeh82@gmail.com. Set ADMIN_PASSWORD in the admin app environment before first startup, or use Forgot password to initialize it by email. Subsequent changes are persisted in SQLite. Supply ADMIN_AUTH_SECRET and BUSINESS_AUTH_SECRET in production. Configure BUSINESS_AUTH_SECRET in both staff apps, and point BUSINESS_DATABASE_PATH at the same absolute SQLite file on a shared local disk. ADMIN_DATABASE_PATH and AUTH_DATABASE_PATH hold the separate admin and customer databases.
+The NestJS API owns authentication, restaurant invitations, and business onboarding. Copy `apps/api/.env.example` to `apps/api/.env` for local development. The admin account is `hamidyeganeh82@gmail.com`. Set `ADMIN_PASSWORD` before first startup or use Forgot password to initialize it by email. Staff and customer account data currently persists in SQLite. Set `ADMIN_DATABASE_PATH`, `BUSINESS_DATABASE_PATH`, and `AUTH_DATABASE_PATH` to point to existing databases when needed.
 
-Configure RESEND_API_KEY and AUTH_EMAIL_FROM (a verified sender) in all three Next.js apps. The admin app sends restaurant invitations. Each app sends recovery mail for its own accounts. Use ADMIN_AUTH_URL, BUSINESS_AUTH_URL and BETTER_AUTH_URL for their public origins. The Nest API forwards /api/v1 requests to these apps (default ports 7032, 7033 and 7031). Set API_PUBLIC_ORIGIN when the API sits behind an HTTPS reverse proxy.
+Set `RESEND_API_KEY` and `AUTH_EMAIL_FROM` in the NestJS environment for invitations, verification, and recovery. Set `ADMIN_AUTH_URL`, `BUSINESS_AUTH_URL`, and `BETTER_AUTH_URL` to the browser-facing app origins. Each Next.js app forwards auth requests to `YESPIZZ_API_URL`, which defaults to `http://localhost:7038`. A hosted deployment needs persistent storage for the account databases.
 
 Open the admin dashboard and select Create restaurant or resend invitation. Invitations last 15 minutes. A successful first sign-in exchanges the invitation for a single-use password setup token. After saving the password the owner signs in normally. Resending an invitation invalidates outstanding codes. Staff password recovery uses a separate emailed code and revokes existing sessions on success.
 

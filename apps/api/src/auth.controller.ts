@@ -1,66 +1,120 @@
-import { Controller, Get, Post, Req, Res } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { All, Controller, Req, Res } from '@nestjs/common';
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from 'express';
+import { CustomerAuthService } from './customer-auth.service.js';
+import { RestaurantService } from './restaurant.service.js';
+import { StaffAuthService } from './staff-auth.service.js';
 
-@Controller('api/v1')
+@Controller()
 export class AuthController {
-  @Get(['auth/me', 'admin/auth/me', 'business/auth/me'])
-  current(@Req() request: Request, @Res() response: Response) {
-    return this.forward(request, response);
-  }
+  constructor(
+    private readonly customerAuth: CustomerAuthService,
+    private readonly staffAuth: StaffAuthService,
+    private readonly restaurants: RestaurantService,
+  ) {}
 
-  @Post([
-    'auth/:action',
-    'admin/auth/:action',
-    'business/auth/:action',
-    'admin/restaurants',
+  @All([
+    'api/v1/auth/:action',
+    'api/v1/admin/auth/:action',
+    'api/v1/business/auth/:action',
+    'api/v1/admin/restaurants',
+    'api/v1/business/restaurant-profile',
+    'api/auth/{*path}',
+    'api/v1/business/legacy-auth/{*path}',
   ])
-  async forward(@Req() request: Request, @Res() response: Response) {
-    const path = request.path;
-    const role = path.startsWith('/api/v1/admin/')
-      ? 'admin'
-      : path.startsWith('/api/v1/business/')
-        ? 'business'
-        : 'application';
-    const origins = {
-      admin: process.env.ADMIN_AUTH_URL || 'http://localhost:7032',
-      business: process.env.BUSINESS_AUTH_URL || 'http://localhost:7033',
-      application: process.env.BETTER_AUTH_URL || 'http://localhost:7031',
-    };
-    const origin = request.get('origin');
+  async handle(@Req() source: ExpressRequest, @Res() output: ExpressResponse) {
+    if (source.method !== 'GET' && source.method !== 'POST') {
+      output.sendStatus(405);
+      return;
+    }
+    const path = source.path;
+    const business = path.startsWith('/api/v1/business/');
+    const admin = path.startsWith('/api/v1/admin/');
+    const appOrigin = new URL(
+      admin
+        ? process.env.ADMIN_AUTH_URL || 'http://localhost:7032'
+        : business
+          ? process.env.BUSINESS_AUTH_URL || 'http://localhost:7033'
+          : process.env.BETTER_AUTH_URL || 'http://localhost:7031',
+    ).origin;
+    const origin = source.get('origin');
     if (
       origin &&
-      origin !==
-        (process.env.API_PUBLIC_ORIGIN ||
-          request.protocol + '://' + request.get('host'))
+      origin !== appOrigin &&
+      !(
+        path === '/api/auth/callback/apple' &&
+        origin === 'https://appleid.apple.com'
+      )
     ) {
-      response.sendStatus(403);
+      output.sendStatus(403);
       return;
     }
-    if (request.method === 'POST' && !request.is('application/json')) {
-      response.sendStatus(415);
+
+    const legacy =
+      path.startsWith('/api/auth/') ||
+      path.startsWith('/api/v1/business/legacy-auth/');
+    const requestPath = source.originalUrl.replace(
+      /^\/api\/v1\/business\/legacy-auth\//,
+      '/api/auth/',
+    );
+    const headers = new Headers();
+    for (const name of [
+      'accept',
+      'content-type',
+      'cookie',
+      'origin',
+      'user-agent',
+      'sec-fetch-site',
+      'sec-fetch-mode',
+      'sec-fetch-dest',
+    ]) {
+      const value = source.get(name);
+      if (value) headers.set(name, value);
+    }
+    if (source.method === 'POST' && !legacy && !source.is('application/json')) {
+      output.sendStatus(415);
       return;
     }
-    try {
-      const upstream = await fetch(new URL(path, origins[role]), {
-        method: request.method,
-        headers: {
-          'content-type': 'application/json',
-          cookie: request.get('cookie') || '',
-        },
-        body:
-          request.method === 'POST' ? JSON.stringify(request.body) : undefined,
-        redirect: 'manual',
-      });
-      response.status(upstream.status).set('Cache-Control', 'no-store');
-      for (const cookie of upstream.headers.getSetCookie())
-        response.append('Set-Cookie', cookie);
-      response
-        .type(upstream.headers.get('content-type') || 'application/json')
-        .send(await upstream.text());
-    } catch {
-      response
-        .status(502)
-        .json({ message: 'Authentication service unavailable.' });
+    const body =
+      source.method === 'POST'
+        ? source.is('application/x-www-form-urlencoded')
+          ? new URLSearchParams(source.body).toString()
+          : JSON.stringify(source.body ?? {})
+        : undefined;
+    const request = new Request(appOrigin + requestPath, {
+      method: source.method,
+      headers,
+      body,
+    });
+    const action = path.split('/').at(-1)!;
+    const response =
+      path === '/api/v1/admin/restaurants'
+        ? source.method === 'POST'
+          ? await this.staffAuth.createRestaurant(request)
+          : new Response(null, { status: 405 })
+        : path === '/api/v1/business/restaurant-profile'
+          ? await this.restaurants.profile(request)
+          : legacy
+            ? business
+              ? await this.staffAuth.businessSignOut(request)
+              : await this.customerAuth.legacy(request)
+            : admin || business
+              ? await this.staffAuth.run(
+                  admin ? 'admin' : 'business',
+                  action,
+                  request,
+                )
+              : await this.customerAuth.run(action, request);
+
+    output.status(response.status).set('Cache-Control', 'no-store');
+    for (const name of ['location', 'content-type', 'retry-after']) {
+      const value = response.headers.get(name);
+      if (value) output.set(name, value);
     }
+    for (const cookie of response.headers.getSetCookie())
+      output.append('Set-Cookie', cookie);
+    output.send(Buffer.from(await response.arrayBuffer()));
   }
 }

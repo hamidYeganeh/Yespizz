@@ -1,9 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { getAuth } from "@/lib/auth";
+import { authPost, authSession } from "../../../../../../../packages/staff/api-client";
 import { addressSchema, catalog, delivery, orderSchema, parse, quote, quoteSchema, restaurants, slots } from "@/lib/commerce";
-import { CommerceError, customerOrders, eraseCustomer, findOrder, getRecord, insertOrder, publicOrder,
+import { CommerceError, customerOrders, findOrder, getRecord, insertOrder, publicOrder,
   records, saveOrder, transition, withCommerce, writeRecord } from "../../../../../../../packages/ui/src/commerce-store";
 import { refundPayment, startPayment, stripeWebhook } from "../../../../../../../packages/ui/src/commerce-payment";
 import { inputText, jsonBody, respond, sameOrigin } from "../../../../../../../packages/ui/src/commerce-http";
@@ -14,7 +14,7 @@ const single = new Set(["cart", "preferences", "favorites"]);
 const accountCollections = new Set([...single, "addresses", "devices", "notifications"]);
 
 async function customer(request: Request, createGuest = false) {
-  const session = await (await getAuth()).api.getSession({ headers: request.headers });
+  const session = await authSession("customer",request.headers);
   const jar = await cookies();
   let guest = jar.get(guestCookie)?.value ?? "";
   if (!/^[a-f0-9]{64}$/.test(guest)) guest = "";
@@ -143,11 +143,10 @@ async function handle(request: Request, path: string[]) {
     }
     if (!id && method === "DELETE") {
       const body = await jsonBody(request);
-      const password = inputText(body.password, 128, true);
-      const auth = await getAuth();
-      await auth.api.deleteUser({ headers: request.headers, body: { password } }).catch(() => { throw new CommerceError(400, "Confirm your password to delete the account."); });
-      eraseCustomer(shopper);
-      return { ok: true };
+      const password = body.password === undefined ? "" : inputText(body.password, 128);
+      const response = await authPost("/api/auth/delete-user", { ...(password && { password }), callbackURL: "/" }, request.headers);
+      if (!response.ok) throw new CommerceError(response.status, "The account deletion request could not be completed.");
+      return { ok: true, confirmation: "email" };
     }
     if (id && accountCollections.has(id)) {
       const key = action ?? "state";

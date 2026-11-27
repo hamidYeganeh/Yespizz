@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
+import { CustomerAuthService } from './customer-auth.service.js';
+import { RestaurantService } from './restaurant.service.js';
+import { StaffAuthService } from './staff-auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -18,6 +21,11 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
   ],
   controllers: [AppController, AuthController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    CustomerAuthService,
+    StaffAuthService,
+    RestaurantService,
+  ],
 })
 export class AppModule {}

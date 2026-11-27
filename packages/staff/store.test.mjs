@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adminEmail, provision, staffAction, staffStore } from "./store.mjs";
+import { adminEmail, provision, staffAction, staffStore } from "../../apps/api/src/staff-auth.mjs";
 
 test("provision, rotate invitation, redeem once, sign in and recover staff credentials", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "yespiz-staff-"));

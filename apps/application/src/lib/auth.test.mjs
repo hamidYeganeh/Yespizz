@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { getAuth } from "./auth.ts";
+import { getAuth } from "../../../api/src/customer-auth.ts";
 
 test("customer verifies email, sets password, logs in and resets password", async (t) => {
   Object.assign(process.env, {

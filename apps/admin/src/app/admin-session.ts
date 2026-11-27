@@ -1,10 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { staffStore, adminEmail } from "../../../../packages/staff/store.mjs";
+import { authSession } from "../../../../packages/staff/api-client";
 export async function signedIn() {
-  const { auth } = await staffStore("admin");
-  return (
-    (await auth.api.getSession({ headers: await headers() }))?.user.email ===
-    adminEmail
-  );
+  return Boolean(await authSession("admin", await headers()));
 }
