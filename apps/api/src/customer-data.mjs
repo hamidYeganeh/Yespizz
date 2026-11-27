@@ -14,9 +14,13 @@ export function eraseCustomer(shopper) {
       "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
     );
     if (hasTable.get('commerce_records')) {
-      db.prepare('DELETE FROM commerce_records WHERE scope=?').run(
-        'customer:' + shopper,
-      );
+      const scope = 'customer:' + shopper;
+      if (hasTable.get('commerce_attachments')) {
+        db.prepare(`DELETE FROM commerce_attachments WHERE ticket IN (SELECT id FROM commerce_records
+          WHERE scope='admin' AND collection='support' AND json_extract(data,'$.scope')=?)`).run(scope);
+      }
+      db.prepare(`DELETE FROM commerce_records WHERE scope='admin' AND collection='support' AND json_extract(data,'$.scope')=?`).run(scope);
+      db.prepare('DELETE FROM commerce_records WHERE scope=?').run(scope);
     }
     if (hasTable.get('commerce_orders')) {
       const orders = db

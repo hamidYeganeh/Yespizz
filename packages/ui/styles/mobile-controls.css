@@ -1,0 +1,29 @@
+/* Shared mobile controls for the customer and courier apps. */
+.auth-screen .auth-primary, .auth-screen .auth-provider, .courier-shell .primary {
+  width:100%;
+  min-height:3.5rem;
+  border-radius:100vmax;
+  font-size:1rem;
+  font-weight:600;
+}
+.auth-primary.button, .courier-shell .primary {
+  background:var(--accent);
+  color:var(--accent-foreground);
+}
+.help-tabs, .courier-shell .courier-tabs {
+  display:flex;
+  background:var(--foreground);
+  border-radius:999px;
+  padding:var(--spacing, .25rem);
+}
+.help-tabs .button, .courier-shell .courier-tabs button {
+  flex:1;
+  border-radius:999px;
+  background:transparent;
+  color:var(--surface);
+  min-height:3rem;
+}
+.help-tabs .button[aria-pressed=true], .courier-shell .courier-tabs [aria-pressed=true] {
+  background:var(--accent);
+  color:var(--accent-foreground);
+}

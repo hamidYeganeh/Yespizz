@@ -109,3 +109,7 @@
 }
 
 
+.live-rating-card {padding:1.1rem;gap:.85rem}
+.review-avatar {display:grid;place-items:center;width:2.4rem;height:2.4rem;border-radius:50%;background:var(--surface);color:var(--foreground)}
+.live-rating-card blockquote {border-inline-start:2px solid var(--accent);margin-top:.8rem;padding-inline-start:.7rem}
+.review-placeholder {padding:2rem 1rem;text-align:center;color:var(--muted)}

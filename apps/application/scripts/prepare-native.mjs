@@ -17,6 +17,7 @@ if (!process.env.CAPACITOR_SERVER_URL) {
 
   const replace = (file, body) => writeFileSync(join(staging, "src", file), body);
   rmSync(join(staging, "src/app/api"), { recursive: true, force: true });
+  for (const file of ["commerce.ts", "places.ts"]) rmSync(join(staging, "src/lib", file), { force: true });
   replace("app/auth/actions.ts", `
 export async function needsPassword() { return false; }
 export async function registerPassword(_password: string) { return { error: null }; }

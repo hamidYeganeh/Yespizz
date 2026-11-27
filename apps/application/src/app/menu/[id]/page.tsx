@@ -12,6 +12,8 @@ import { PizzaPreview } from "./pizza-preview";
 import { offers } from "../menu-filters";
 import { menu } from "./catalog";
 import { DishCarousel, OrderControls, Recommendation } from "./controls";
+import { CustomizeDish } from "./customize";
+import { LiveReviews } from "./reviews/live-reviews";
 import "../../category-tiles.css";
 import "./menu.css";
 
@@ -23,18 +25,22 @@ export default async function MenuPage({
 }) {
   const { id } = await params;
   const item = menu.find((entry) => entry.id === id);
-  if (!item) notFound();
+  if (!item) {
+    if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1" || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)) notFound();
+    return <main className="dish"><CustomizeDish key={id} id={id} fallback /></main>;
+  }
   const t = await getTranslations("Application.menu");
+  const offline = process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1";
   const reviewKeys = ["review1", "review2", "review3"] as const;
   const reviewers = ["Henry, Arthur", "Esther", "Sofia"];
   return (
     <OrderControls key={item.id} item={item}>
-      <PizzaPreview item={item} promo={offers[id]?.promo ?? false}>
-        <div className="dish-score">
+      <PizzaPreview item={item} promo={offline && Boolean(offers[id]?.promo)} previewToppings={offline}>
+        {offline && <div className="dish-score">
           <span className="dish-score-star"><RatingStar /></span>{" "}
           <SlidingNumber number={item.rating} decimalPlaces={1} padStart />{" "}
           (<SlidingNumber number={item.ratings} padStart />)
-        </div>
+        </div>}
         <h1><PageTransitionShared name={`dish-${id}-name`}>{t(item.key)}</PageTransitionShared></h1>
         <p className="t-stagger-line t-stagger-line--2">{t(`${item.key}Description`)}</p>
         <dl className="pizza-facts">
@@ -44,11 +50,12 @@ export default async function MenuPage({
       </PizzaPreview>
       <section className="dish-ingredients">
         <h2>{t("ingredients")}</h2>
-        <ScrollFade asChild orientation="horizontal" size={18}><ul className="category-tiles" tabIndex={0} aria-label={t("ingredients")}>
+        <ScrollFade orientation="horizontal" size={18}><ul className="category-tiles" tabIndex={0} aria-label={t("ingredients")}>
           {item.ingredients.map(key => <li key={key}><Image src={`/menu/ingredients/${key}.webp`} width={48} height={48} alt="" />{t(key)}</li>)}
         </ul></ScrollFade>
       </section>
-      <section aria-label={t("reviews")} className="dish-reviews">
+      <CustomizeDish key={id} id={id} />
+      {offline ? <section aria-label={t("reviews")} className="dish-reviews">
         <Link className="review-summary" href={`/menu/${item.id}/reviews`} aria-label={t("reviewTitle")}>
           <strong>
             <i><RatingStar /></i>{" "}
@@ -97,7 +104,7 @@ export default async function MenuPage({
             </Card>
           ))}
         </DishCarousel>
-      </section>
+      </section> : <LiveReviews item={id} compact />}
       <Recommendation currentId={id} />
     </OrderControls>
   );

@@ -2,20 +2,25 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { authPost, authSession } from "../../../../../../../packages/staff/api-client";
-import { addressSchema, catalog, delivery, orderSchema, parse, quote, quoteSchema, restaurants, slots } from "@/lib/commerce";
+import { addressSchema, catalog, delivery, eligibleRestaurants, orderSchema, parse, quote, quoteSchema, restaurants, slots } from "@/lib/commerce";
 import { CommerceError, customerOrders, findOrder, getRecord, insertOrder, publicOrder,
-  records, saveOrder, transition, withCommerce, writeRecord } from "../../../../../../../packages/ui/src/commerce-store";
-import { refundPayment, startPayment, stripeWebhook } from "../../../../../../../packages/ui/src/commerce-payment";
+  rankOffers, records, saveOrder, transition, withCommerce, writeRecord } from "../../../../../../../packages/ui/src/commerce-store";
+import { businesses } from "../../../../../../../packages/ui/src/order-store";
+import { connectEnabled, cardsFor, openCardSetup, paymentsAvailable, refundPayment, removeCard, startPayment, stripeWebhook } from "../../../../../../../packages/ui/src/commerce-payment";
 import { inputText, jsonBody, respond, sameOrigin } from "../../../../../../../packages/ui/src/commerce-http";
+import { addSupportMessage, parseAttachment, supportFile, ticketFor, ticketsFor } from "../../../../../../../packages/ui/src/commerce-support";
+import { pushAvailable, sendOrderPush } from "../../../../../../../packages/ui/src/commerce-push";
+import { placeDetails, placeSuggestions } from "@/lib/places";
 
 type Context = { params: Promise<{ path: string[] }> };
 const guestCookie = "yespizz-guest";
-const single = new Set(["cart", "preferences", "favorites"]);
-const accountCollections = new Set([...single, "addresses", "devices", "notifications"]);
+const single = new Set(["cart", "preferences"]);
+const accountCollections = new Set([...single, "addresses", "devices", "notifications", "favorites"]);
 
 async function customer(request: Request, createGuest = false) {
-  const session = await authSession("customer",request.headers);
   const jar = await cookies();
+  const hasSession = jar.has("better-auth.session_token") || jar.has("__Secure-better-auth.session_token");
+  const session = hasSession ? await authSession("customer", request.headers) : null;
   let guest = jar.get(guestCookie)?.value ?? "";
   if (!/^[a-f0-9]{64}$/.test(guest)) guest = "";
   if (!session && !guest && createGuest) {
@@ -36,14 +41,6 @@ function orderFor(reference: string, shopper: string, guest: string, access = ""
   return order;
 }
 
-function acceptOrder(db: Parameters<Parameters<typeof withCommerce>[0]>[0], owner: string, scheduledAt: string, capacity: number) {
-  const expiringAt = new Date(Date.now() - 35 * 60000).toISOString();
-  const count = db.prepare(`SELECT COUNT(*) AS total FROM commerce_orders WHERE owner=? AND json_extract(data,'$.scheduledAt')=?
-    AND (stage IN ('received','accepted','preparing','ready','out_for_delivery','delivered') OR (stage='pending_payment' AND date>=?))`)
-    .get(owner, scheduledAt, expiringAt);
-  if (Number(count?.total) >= capacity) throw new CommerceError(409, "This delivery time is full.");
-}
-
 async function handle(request: Request, path: string[]) {
   const [collection, id, action, ...rest] = path;
   const method = request.method;
@@ -51,6 +48,10 @@ async function handle(request: Request, path: string[]) {
   if (rest.length) throw new CommerceError(404, "Endpoint not found.");
   if (collection === "webhooks" && id === "stripe" && !action && method === "POST") return stripeWebhook(request);
   if (collection === "health" && !id && method === "GET") return withCommerce(() => ({ ok: true }));
+  if (collection === "integrations" && id === "push" && !action && method === "GET") return { android: pushAvailable("android"), ios: pushAvailable("ios") };
+  if (collection === "integrations" && id === "payments" && !action && method === "GET") return { enabled: paymentsAvailable() };
+  if (collection === "locations" && id === "suggestions" && !action && method === "POST") return placeSuggestions(inputText((await jsonBody(request)).query, 150));
+  if (collection === "locations" && id === "places" && action && method === "GET") return placeDetails(action);
   if (collection === "restaurants" && method === "GET") {
     const shops = restaurants();
     if (!id) return shops;
@@ -89,14 +90,16 @@ async function handle(request: Request, path: string[]) {
         return publicOrder(order);
       };
       if (previous) return verify(previous);
+      input.owner = "yespizz";
       const price = quote(input);
       if (price.total !== input.expectedTotal) throw new CommerceError(409, "The total changed. Review the new price before paying.");
-      const availability = delivery(input.owner, input.address.postalCode, input.scheduledAt);
+      const eligible = eligibleRestaurants(input.address.postalCode, input.scheduledAt).filter(shop => shop.availability.minimum <= price.subtotal);
+      if (!eligible.length) throw new CommerceError(409, "No restaurant can deliver this order.");
       return withCommerce(db => {
         const existing = findOrder(db, input.reference);
         if (existing) return verify(existing);
-        if (price.scheduledAt) acceptOrder(db, input.owner, price.scheduledAt, availability.slotCapacity);
-        return publicOrder(insertOrder(db, { ...price, reference: input.reference, owner: input.owner, shopper, guest,
+        rankOffers(db, input.reference, input.address.point, eligible);
+        return publicOrder(insertOrder(db, { ...price, reference: input.reference, owner: input.owner, sharedPayout: connectEnabled(), shopper, guest,
           address: input.address, name: input.name, email: input.email, phone: input.phone, fingerprint,
           accessToken: randomBytes(32).toString("hex") }));
       }, true);
@@ -106,7 +109,7 @@ async function handle(request: Request, path: string[]) {
       if (method === "GET" && (!action || ["payment", "tracking", "receipt"].includes(action))) return publicOrder(order);
       if (method === "POST" && action === "payment") {
         sameOrigin(request);
-        return startPayment(order, url.origin);
+        return startPayment(order, request.headers.get("origin") || url.origin);
       }
       if (method === "POST" && action === "cancel") {
         const body = await jsonBody(request);
@@ -119,13 +122,19 @@ async function handle(request: Request, path: string[]) {
           return latest;
         }, true);
         if (["paid", "refund_failed"].includes(cancelled.paymentStatus)) await refundPayment(cancelled);
+        await sendOrderPush(cancelled, "cancelled");
         return publicOrder(withCommerce(db => findOrder(db, id)!));
+      }
+      if (method === "GET" && action === "review") {
+        if (order.stage !== "delivered") throw new CommerceError(409, "Reviews are available after delivery.");
+        return getRecord(order.owner, "reviews", order.reference);
       }
       if (method === "POST" && action === "review") {
         const body = await jsonBody(request);
         if (order.stage !== "delivered") throw new CommerceError(409, "Reviews are available after delivery.");
         const rating = parse(z.number().int().min(1).max(5), body.rating);
-        return writeRecord(order.owner, "reviews", order.reference, { rating, text: inputText(body.text, 2000, true), at: new Date().toISOString(), published: false });
+        return writeRecord(order.owner, "reviews", order.reference, { rating, text: inputText(body.text, 2000, true),
+          at: new Date().toISOString(), published: false, items: [...new Set(order.lines.map(line => line.id))] });
       }
       if (method === "POST" && action === "reorder") return { lines: order.lines };
     }
@@ -134,6 +143,11 @@ async function handle(request: Request, path: string[]) {
     const { session, shopper } = await customer(request);
     if (!session) throw new CommerceError(401, "Sign in to use this feature.");
     const scope = `customer:${shopper}`;
+    if (id === "cards") {
+      if (!action && method === "GET") return cardsFor(shopper);
+      if (action === "setup" && method === "POST") { await jsonBody(request); return openCardSetup(shopper, session.user.email, url.origin); }
+      if (action && method === "DELETE") { sameOrigin(request); return removeCard(shopper, action); }
+    }
     if (!id && method === "GET") return { ...session.user, ...(getRecord(scope, "preferences", "profile") ?? {}) };
     if (!id && method === "PATCH") {
       const body = await jsonBody(request);
@@ -150,7 +164,10 @@ async function handle(request: Request, path: string[]) {
     }
     if (id && accountCollections.has(id)) {
       const key = action ?? "state";
-      if (method === "GET") return single.has(id) ? getRecord(scope, id, key) : action ? getRecord(scope, id, action) : records(scope, id);
+      if (method === "GET") {
+        if (id === "devices") return records(scope, id).map(({ id: deviceId, platform }) => ({ id: deviceId, platform }));
+        return single.has(id) ? getRecord(scope, id, key) : action ? getRecord(scope, id, action) : records(scope, id);
+      }
       if (method === "DELETE" && action && id !== "notifications") return writeRecord(scope, id, action, null);
       if (["POST", "PUT", "PATCH"].includes(method)) {
         const body = await jsonBody(request);
@@ -164,7 +181,21 @@ async function handle(request: Request, path: string[]) {
         }
         if (id === "devices") {
           const value = parse(z.object({ token: z.string().min(16).max(4096), platform: z.enum(["android", "ios"]) }), body);
-          return writeRecord(scope, id, createHash("sha256").update(value.token).digest("hex"), value);
+          if (!pushAvailable(value.platform)) throw new CommerceError(503, "Push notifications are not configured.");
+          const key = createHash("sha256").update(value.token).digest("hex");
+          return withCommerce(db => {
+            db.prepare("DELETE FROM commerce_records WHERE collection='devices' AND id=?").run(key);
+            db.prepare("INSERT INTO commerce_records VALUES(?,'devices',?,?)").run(scope, key, JSON.stringify(value));
+            return { id: key, platform: value.platform };
+          }, true);
+        }
+        if (id === "favorites" && action) return writeRecord(scope, id, inputText(action, 80, true), {});
+        if (id === "cart") {
+          const cart = parse(z.object({ simple: z.record(z.string().max(80), z.number().int().min(0).max(200)),
+            configured: z.array(z.object({ key: z.string().max(800), id: z.string().max(80), name: z.string().max(120),
+              quantity: z.number().int().min(1).max(200), unitPrice: z.number().int().min(1).max(1000000), size: z.string().max(80).optional(),
+              toppings: z.array(z.string().max(80)).max(15), removed: z.array(z.string().max(80)).max(15) })).max(50) }), body.value);
+          return writeRecord(scope, id, key, { value: cart });
         }
         return writeRecord(scope, id, key, { value: body.value });
       }
@@ -172,29 +203,53 @@ async function handle(request: Request, path: string[]) {
   }
   if (collection === "offers" && !action && method === "GET") {
     const owner = id || restaurants()[0]?.owner;
-    return owner ? records(owner, "promotions").filter(row => row.active === true).map(({ id, code, amount, minimum, name }) => ({ id, code, amount, minimum, name })) : [];
+    return owner ? records(owner === "yespizz" ? "admin" : owner, "promotions").filter(row => row.active === true).map(({ id, code, amount, minimum, name }) => ({ id, code, amount, minimum, name })) : [];
   }
-  if (collection === "reviews" && id && !action && method === "GET") return records(id, "reviews").filter(row => row.published === true)
-    .map(({ id: reviewId, rating, text, at, reply }) => ({ id: reviewId, rating, text, at, reply }));
-  if (collection === "support" && id === "tickets") {
+  if (collection === "content" && !action && method === "GET") {
+    const owner = url.searchParams.get("restaurant") ?? restaurants()[0]?.owner;
+    const placement = id ?? "home";
+    const scopes = owner ? [owner, "admin"] : ["admin"];
+    const now = Date.now();
+    return scopes.flatMap(scope => [
+      ...records(scope, "content").filter(item => item.published === true || item.status === "published"),
+      ...records(scope, "ads").filter(item => item.active === true || item.status === "running"),
+    ]).filter(item => item.placement === placement && (!item.startsAt || Date.parse(String(item.startsAt)) <= now) &&
+      (!item.endsAt || Date.parse(String(item.endsAt)) > now)).flatMap(item => {
+      const headline = typeof item.headline === "string" ? item.headline.trim().slice(0, 120) : "";
+      const href = typeof item.destination === "string" && /^\/(?![\/\\])[^\u0000-\u001f]*$/.test(item.destination) ? item.destination : "/menu";
+      return headline ? [{ id: item.id, headline, href, description: typeof item.description === "string" ? item.description.slice(0, 240) : "" }] : [];
+    }).slice(0, 10);
+  }
+  if (collection === "reviews" && !action && method === "GET") {
+    const owner = id ?? restaurants()[0]?.owner;
+    const item = url.searchParams.get("item");
+    if (!owner) return [];
+    const reviews = owner === "yespizz" ? businesses().flatMap(shop => records(shop.owner, "reviews")) : records(owner, "reviews");
+    return reviews.filter(row => row.published === true && (!item || (Array.isArray(row.items) && row.items.includes(item))))
+    .map(({ id: reviewId, rating, text, at, reply, demo }) => ({ id: reviewId, rating, text, at, reply, demo: demo === true }));
+  }
+  if (collection === "support" && (id === "tickets" || id === "attachments")) {
     const { shopper, guest } = await customer(request, method === "POST");
     const scope = shopper ? `customer:${shopper}` : `guest:${guest}`;
+    if (id === "attachments") {
+      if (!action || method !== "GET" || (!shopper && !guest)) throw new CommerceError(404, "Attachment not found.");
+      return supportFile(action, { scope });
+    }
     if (!shopper && !guest) return [];
-    if (method === "GET") return action ? getRecord(scope, "support", action) : records(scope, "support");
+    if (method === "GET") return action ? ticketFor(action, scope) : ticketsFor(scope);
     if (method === "POST") {
-      const body = await jsonBody(request);
-      const text = inputText(body.text, 2000, true);
+      sameOrigin(request);
+      const isForm = request.headers.get("content-type")?.startsWith("multipart/form-data");
+      if (isForm && Number(request.headers.get("content-length")) > 2_200_000) throw new CommerceError(413, "Attachment is too large.");
+      const body = isForm ? Object.fromEntries(await request.formData()) : await jsonBody(request);
+      const attachment = isForm ? await parseAttachment(body.file instanceof File ? body.file : null) : undefined;
+      const text = inputText(body.text, 2000, !attachment);
       const ticketId = action || crypto.randomUUID();
-      const previous = action ? getRecord(scope, "support", action) : null;
+      const previous = action ? ticketFor(action, scope) : null;
       if (action && !previous) throw new CommerceError(404, "Ticket not found.");
-      const reference = previous ? String(previous.reference) : inputText(body.reference, 60);
-      const order = reference ? orderFor(reference, shopper, guest) : null;
-      const owner = order?.owner;
-      const original = getRecord("admin", "support", ticketId) ?? previous;
-      const ticket = { reference, owner, status: "open", scope,
-        messages: [...(Array.isArray(original?.messages) ? original.messages : []), { text, by: "customer", at: new Date().toISOString() }] };
-      writeRecord("admin", "support", ticketId, ticket);
-      return writeRecord(scope, "support", ticketId, ticket);
+      const reference = previous?.reference ?? inputText(body.reference, 60);
+      const owner = previous?.owner ?? (reference ? orderFor(reference, shopper, guest, inputText(body.access, 64)).owner : undefined);
+      return addSupportMessage({ id: ticketId, owner, reference, scope, text, attachment, create: !action });
     }
   }
   throw new CommerceError(404, "Endpoint not found.");

@@ -12,6 +12,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Icon } from "@repo/icons";
 import { LanguagePicker } from "../language-picker";
 import { groups } from "../sections";
+import { DeleteAccount } from "../delete-account";
 
 export default async function ProfileSection({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
@@ -39,11 +40,11 @@ export default async function ProfileSection({ params }: { params: Promise<{ sec
         : key === "help" ? <Help />
         : key === "language" ? <LanguagePicker locale={locale} label={t("language")} />
         : key === "favorites" ? <Favorites />
-        : <section className="rounded-3xl bg-surface-secondary p-5">
+        : <><section className="rounded-3xl bg-surface-secondary p-5">
             <h2 className="font-semibold">{t("password")}</h2>
             <p className="my-3 text-sm">{t("recoveryHint")}</p>
             <ButtonLink href="/auth/forgot-password">{t("resetPassword")}</ButtonLink>
-          </section>}
+          </section><DeleteAccount /></>}
     </main>
   );
 }

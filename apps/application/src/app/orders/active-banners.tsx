@@ -2,12 +2,14 @@
 import { Button, Card } from "@heroui/react";
 import { MapPin, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslations, useFormatter } from "next-intl";
 import { useProfileValue } from "../profile/profile-data";
 import { sampleOrders, type StoredOrder } from "./order-data";
 import { orderHref } from "./order-href";
 import Link from "next/link";
+import { commerceApi } from "@/lib/commerce-client";
+import type { OnlineOrderData } from "./online-order";
 function subscribe(listener: () => void) {
   window.addEventListener("storage", listener);
   window.addEventListener("order-cancelled", listener);
@@ -85,6 +87,30 @@ function Banner({ order }: { order: StoredOrder }) {
   );
 }
 export function ActiveOrders() {
+  if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1") return <LiveActiveOrders />;
+  return <DemoActiveOrders />;
+}
+
+function LiveActiveOrders() {
+  const t = useTranslations("Application.orderList");
+  const format = useFormatter();
+  const [orders, setOrders] = useState<OnlineOrderData[]>([]);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => commerceApi<OnlineOrderData[]>("orders").then(items => {
+      if (live) setOrders(items.filter(order => !["delivered", "cancelled", "rejected", "pending_payment"].includes(order.stage)));
+    }).catch(() => {});
+    void refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { live = false; clearInterval(timer); };
+  }, []);
+  return orders.map(order => <Card key={order.reference} className="my-3 grid gap-3 rounded-3xl p-4"><Card.Content>
+    <strong>{t("active")} · {order.reference}</strong><p>{format.number(order.total / 100, { style: "currency", currency: "EUR" })}</p>
+    <Link href={orderHref(order.reference)}>{t("track")}</Link>
+  </Card.Content></Card>);
+}
+
+function DemoActiveOrders() {
   const [orders, , ready] = useProfileValue<StoredOrder[]>("orders", []);
   return (
     ready &&

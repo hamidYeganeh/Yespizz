@@ -407,3 +407,51 @@
 .checkout-schedule-switch > span::before { content:""; width:1.1rem; aspect-ratio:1; border-radius:50%; background:var(--foreground); }
 .checkout-schedule-switch[aria-checked=true] > span { justify-content:flex-end; background:var(--accent); }
 .checkout-schedule-switch[aria-checked=true] > span::before { background:var(--accent-foreground); }
+
+.order-receipt {background:var(--background)}
+.order-receipt header a {display:inline-flex;align-items:center;gap:.5rem;min-height:2.75rem;padding:0 1rem;border-radius:999px;background:var(--surface)}
+.order-receipt header a::before {content:"‹";font-size:1.5rem}
+.order-receipt .checkout-card {background:var(--surface);padding:clamp(1rem,5vw,2rem)}
+.order-receipt .card__content {display:grid;gap:.8rem;min-width:0}
+.order-receipt h1 {font-size:1.75rem;letter-spacing:-.055em}
+.receipt-reference {color:var(--muted);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.order-receipt [role=status] {justify-self:start;padding:.4rem .8rem;border-radius:999px;background:var(--surface-secondary);font-weight:600}
+.order-receipt h2 {margin-top:.6rem;border-top:1px solid var(--separator);padding-top:1rem}
+.receipt-events {display:grid}
+.receipt-events li {position:relative;display:flex;justify-content:space-between;gap:.75rem;padding:.45rem 0 .45rem 1rem;border-inline-start:2px solid var(--separator);font-size:.875rem}
+.receipt-events li:before {content:"";position:absolute;inset-inline-start:-.28rem;top:1rem;width:.45rem;height:.45rem;border-radius:50%;background:var(--muted)}
+.receipt-events li:last-child:before {background:var(--foreground);outline:3px solid var(--accent)}
+.receipt-events time {color:var(--muted)}
+.order-receipt .card__content a {text-decoration:underline;text-underline-offset:.18em}
+.review-form form {display:grid;gap:1.2rem}
+.review-form label {display:grid;gap:.5rem}
+.review-stars {display:flex;gap:.35rem;margin-top:.5rem}
+.review-stars label {position:relative;display:grid;place-items:center;width:clamp(2.6rem,12vw,3.3rem);height:3rem;border-radius:var(--radius);background:var(--surface-secondary);font-size:1.5rem;cursor:pointer}
+.review-stars label[data-lit=true] {background:var(--accent);color:var(--accent-foreground)}
+.review-stars input {position:absolute;inset:0;opacity:0;cursor:pointer}
+.review-stars label:focus-within {outline:2px solid var(--foreground)}
+.live-receipt {background:var(--surface)}
+.live-receipt header {gap:.9rem;margin-block:.4rem 1.25rem}
+.live-receipt header a {justify-content:center;width:3rem;height:3rem;padding:0;background:var(--surface-secondary);font-size:1.4rem}
+.live-receipt header a::before {content:none}
+.live-receipt header h1 {font-size:1.2rem;letter-spacing:-.035em}
+.live-receipt .checkout-card {padding:0;background:transparent}
+.live-receipt .card__content {display:grid;gap:.8rem;padding:0}
+.receipt-hero {position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;min-height:9rem;padding:1.25rem;border-radius:var(--card-radius);background:var(--accent);color:var(--accent-foreground);overflow:hidden}
+.receipt-hero>div {z-index:1;min-width:0}
+.receipt-hero img {object-fit:contain;width:32%;height:auto;flex:none;transform:rotate(-9deg)}
+.live-receipt .receipt-hero h2 {display:block;margin:.5rem 0 .2rem;padding:0;background:none;border:0;color:inherit;font-weight:800;font-size:clamp(1.65rem,7vw,2.5rem);letter-spacing:-.055em;line-height:1.04}
+.receipt-payment {display:inline-flex;gap:.3rem;align-items:center;border-radius:999px;background:var(--accent-foreground);color:var(--accent);padding:.2rem .6rem;font-size:.78rem}
+.receipt-hero time,.receipt-address small {font-size:.8rem}
+.receipt-address,.receipt-items,.receipt-history {padding:1rem;border-radius:var(--card-radius);background:var(--surface-secondary)}
+.receipt-address {display:flex;align-items:center;gap:.8rem}
+.receipt-address>.freud-icon {display:grid;place-items:center;width:2.75rem;height:2.75rem;flex:none;border-radius:50%;background:var(--surface)}
+.receipt-address small,.receipt-reference {color:var(--muted)}
+.live-receipt .receipt-items h2 {padding:0;margin:0 0 .7rem;border:0;font-size:1rem}
+.receipt-items li {padding:.35rem 0}
+.receipt-total {display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:.7rem;padding-top:.7rem}
+.receipt-total strong {font-size:1.25rem}
+.receipt-history summary {cursor:pointer;font-weight:600}
+.receipt-history[open] summary {margin-bottom:.7rem}
+.live-receipt .card__content a.receipt-review-action {display:flex;align-items:center;justify-content:center;gap:.5rem;height:3.25rem;text-decoration:none;background:var(--accent);color:var(--accent-foreground);border-radius:999px;font-weight:650}
+.live-receipt .receipt-reference {font-size:.75rem;line-height:1.5}

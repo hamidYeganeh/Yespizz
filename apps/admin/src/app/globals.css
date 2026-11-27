@@ -35,3 +35,7 @@
 :root, [data-theme] {
   --field-background: var(--surface-tertiary);
 }
+.admin-toolbar {display:flex;align-items:center;gap:.5rem;padding:.55rem clamp(.7rem,2vw,1.5rem);background:var(--surface);border-bottom:1px solid var(--border);font-size:.8rem}
+.admin-toolbar a,.admin-toolbar button {display:inline-flex;align-items:center;min-height:2.5rem;padding:.3rem .65rem;border-radius:999px}
+.admin-toolbar a:first-child {font-weight:700}
+.admin-toolbar button {margin-inline-start:auto;background:var(--surface-secondary)}

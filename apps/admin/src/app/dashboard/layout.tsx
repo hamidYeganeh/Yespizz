@@ -9,11 +9,12 @@ export default async function Layout({
   if (!(await signedIn())) redirect("/");
   return (
     <>
-      <nav>
+      <nav className="admin-toolbar" aria-label="Administration">
+        <a href="/dashboard/commerce">Order administration</a>
         <a href="/dashboard/restaurants/new">
-          Create restaurant or resend invitation
+          Restaurant invitations
         </a>{" "}
-        · <Logout />
+        <Logout />
       </nav>
       {children}
     </>

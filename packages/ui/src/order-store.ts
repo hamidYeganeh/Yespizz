@@ -16,6 +16,7 @@ const { DatabaseSync } = (process as NodeJS.Process & {getBuiltinModule(name:str
 import { mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import type { DispatchOrder } from "./dispatch-data";
+import { staffOrders } from "./commerce-store";
 
 function db() {
   const file = resolve(
@@ -39,12 +40,20 @@ export function businesses() {
   try {
     return store
       .prepare(
-        "SELECT owner,name FROM restaurant_profile WHERE handle IS NOT NULL AND name <> '' ORDER BY name",
+        "SELECT p.owner,name,t.latitude,t.longitude FROM restaurant_profile p JOIN restaurant_terms t ON t.owner=p.owner WHERE handle IS NOT NULL AND name <> '' ORDER BY name",
       )
-      .all() as { owner: string; name: string }[];
+      .all() as { owner: string; name: string; latitude: number; longitude: number }[];
   } finally {
     store.close();
   }
+}
+
+export function restaurantCommission(owner: string) {
+  const file = resolve(/* turbopackIgnore: true */ process.env.BUSINESS_DATABASE_PATH || "../business/.data/business.sqlite");
+  const store = new DatabaseSync(file, { readOnly: true });
+  try {
+    return Number(store.prepare("SELECT commission FROM restaurant_terms WHERE owner=?").get(owner)?.commission ?? 0);
+  } finally { store.close(); }
 }
 export function place(owner: string, customer: string, order: DispatchOrder) {
   const store = db();
@@ -76,13 +85,19 @@ export function place(owner: string, customer: string, order: DispatchOrder) {
 export function listOrders(owner?: string) {
   const store = db();
   try {
-    return (store
+    const legacy = (store
       .prepare(
         "SELECT reference,total,district,lat,lng,placedAt,status FROM dispatch " +
           (owner === undefined ? "" : "WHERE owner=?") +
           " ORDER BY placedAt DESC",
       )
       .all(...(owner === undefined ? [] : [owner])) as DispatchOrder[]).map(row => ({ ...row }));
+    const live: DispatchOrder[] = staffOrders(owner).filter(order => order.stage !== "pending_payment").map(order => ({
+      reference: order.reference, total: order.total / 100, district: order.address.city || "Delivery",
+      lat: order.address.point?.lat ?? null, lng: order.address.point?.lng ?? null, placedAt: order.date,
+      status: order.stage === "delivered" ? "completed" : ["rejected", "cancelled"].includes(order.stage) ? "cancelled" : "active",
+    }));
+    return [...live, ...legacy].sort((first, second) => second.placedAt.localeCompare(first.placedAt));
   } finally {
     store.close();
   }

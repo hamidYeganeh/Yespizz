@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { staffStore } from './staff-auth.mjs';
+import { manageTeam, staffStore } from './staff-auth.mjs';
 import { StaffAuthService } from './staff-auth.service.js';
 import { groups, nextStep, steps, type Profile } from './restaurant-profile.js';
 
@@ -7,10 +7,19 @@ import { groups, nextStep, steps, type Profile } from './restaurant-profile.js';
 export class RestaurantService {
   constructor(private readonly staff: StaffAuthService) {}
 
+  async team(request: Request) {
+    const session = await this.staff.session('business', request.headers);
+    if (!session) return new Response(null, { status: 401 });
+    if (session.user.businessRole !== 'owner') return new Response(null, { status: 403 });
+    const input = request.method === 'POST' ? await request.json().catch(() => null) : {};
+    if (!input || typeof input !== 'object') return new Response(null, { status: 400 });
+    return manageTeam(session.user.id, request.method, input);
+  }
+
   async profile(request: Request) {
     const session = await this.staff.session('business', request.headers);
     if (!session) return new Response(null, { status: 401 });
-    const owner = session.user.id;
+    const owner = session.user.businessOwner ?? session.user.id;
     const { db } = await staffStore('business');
     db.prepare(
       'INSERT OR IGNORE INTO restaurant_profile(owner) VALUES (?)',
@@ -32,8 +41,10 @@ export class RestaurantService {
           'SELECT commission,latitude,longitude,ovens FROM restaurant_terms WHERE owner=?',
         )
         .get(owner);
-      return Response.json({ owner, profile, terms });
+      return Response.json({ owner, profile, role: session.user.businessRole, terms });
     }
+
+    if (session.user.businessRole !== 'owner') return new Response(null, { status: 403 });
 
     const body = await request.json().catch(() => null);
     const step = steps.find((candidate) => candidate === body?.step);

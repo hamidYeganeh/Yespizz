@@ -2,6 +2,7 @@
 @import "@heroui/styles";
 
 @import "@repo/ui/styles/theme.css";
+@import "@repo/ui/styles/mobile-controls.css";
 
 /* Font icons follow the HeroUI button size independently of its label typography. */
 .button--icon-only > .freud-icon {
@@ -61,3 +62,9 @@ input, textarea, [contenteditable="true"] { -webkit-user-select:text; user-selec
 body [data-sileo-viewport] { max-width:calc(100vw - 2 * var(--page-gutter)); }
 body [data-sileo-toast] { max-width:100%; }
 body [data-sileo-title], body [data-sileo-description] { min-width:0; white-space:normal; overflow-wrap:anywhere; }
+
+.notice-list {display:grid;gap:.65rem;margin-top:1rem}
+.notice-list li {display:grid;gap:.5rem;justify-items:start;padding:1rem;border-radius:var(--card-radius);background:var(--surface-secondary)}
+.notice-list a {display:grid;gap:.2rem;min-width:0}
+.notice-list strong {text-transform:capitalize}
+.notice-list small,.notice-list p {overflow-wrap:anywhere;font-size:.8rem;color:var(--muted)}

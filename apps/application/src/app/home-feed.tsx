@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { menu } from "./menu/[id]/catalog";
 
 import { MenuCard } from "./menu/menu-card";
+import { useLiveCatalog } from "./menu/live-catalog";
 import { PromoDeck } from "./promo-card";
 import { ProgressiveBlur } from "./menu/[id]/progressive-blur";
 import "./home.css";
@@ -19,7 +20,13 @@ import "./home.css";
 export function HomeFeed() {
   const t = useTranslations("Application.home");
   const dish = useTranslations("Application.menu");
-  const recommended = [...menu].sort((a,b) => b.rating-a.rating);
+  const live = useLiveCatalog();
+  const offline = process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1";
+  const available = offline ? [...menu] : (live ?? []).flatMap(entry => {
+    const presentation = menu.find(item => item.id === entry.id);
+    return entry.available && presentation ? [{ ...presentation, price: entry.price / 100 }] : [];
+  });
+  const recommended = offline ? [...available].sort((a, b) => b.rating - a.rating).slice(0, 4) : [];
   return <main className="home-feed">
     <header><h1><Image src="/auth/wordmark.png" alt="Yespiz" width={90} height={30} /></h1><HomeAddresses/>
       <div className="flex items-center gap-2"><ButtonLink className="home-bell" href="/notifications" aria-label={t("notifications")}><Icon name="bell-1" /></ButtonLink></div></header>
@@ -32,9 +39,9 @@ export function HomeFeed() {
     <ActiveOrders/>
     <PromoDeck />
     <section><header><h2>{dish("menuTitle")}</h2><ButtonLink href="/menu">{dish("seeAll")}</ButtonLink></header>
-      <div className="home-deals">{menu.map(item=><MenuCard hideSave vertical key={item.id} item={item}/>)}</div></section>
-    <section><header><h2>{dish("recommend")}</h2><ButtonLink href="/menu?recommended=true">{dish("seeAll")}</ButtonLink></header>
-      <div className="home-recommend">{recommended.slice(0,4).map(item=><MenuCard hideSave key={item.id} item={item}/>)}</div></section>
+      {available.length > 0 && <div className="home-deals">{available.map(item => <MenuCard hideSave vertical key={item.id} item={item}/>)}</div>}</section>
+    {recommended.length > 0 && <section><header><h2>{dish("recommend")}</h2><ButtonLink href="/menu?recommended=true">{dish("seeAll")}</ButtonLink></header>
+      <div className="home-recommend">{recommended.map(item => <MenuCard hideSave key={item.id} item={item}/>)}</div></section>}
     <div className="home-nav-backdrop"><ProgressiveBlur direction="bottom" /></div>
     <FeedNavigation current="home" />
   </main>;

@@ -7,7 +7,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { MenuItem } from "./catalog";
 
-export function PizzaPreview({ item, promo, children }: { item: MenuItem; promo: boolean; children: ReactNode }) {
+export function PizzaPreview({ item, promo, previewToppings, children }: { item: MenuItem; promo: boolean; previewToppings: boolean; children: ReactNode }) {
   const t = useTranslations("Application.menu");
   const toppings = item.ingredients.filter(key => key !== "tomatoSauce" && key !== "pizzaDough");
   const [selected, setSelected] = useState<string[]>([]);
@@ -41,13 +41,13 @@ export function PizzaPreview({ item, promo, children }: { item: MenuItem; promo:
       {children}
     </header>
     {promo && "originalPrice" in item && <aside className="mx-(--page-gutter) mb-4 flex items-center gap-3 rounded-2xl bg-accent-soft p-4"><strong className="grow">{t("promo")}</strong><del className="text-muted">€{item.originalPrice}</del><b>€{item.price}</b></aside>}
-    <section className="dish-ingredients"><h2>{t("toppings")}</h2>
+    {previewToppings && <section className="dish-ingredients"><h2>{t("toppings")}</h2>
       <ScrollFade asChild orientation="horizontal" size={18}><ul className="category-tiles topping-options">{toppings.map(key => <li key={key}>
         <button type="button" aria-pressed={selected.includes(key)} onClick={e => {
           flight.current = { key, from: e.currentTarget.querySelector("img")!.getBoundingClientRect() };
           setSelected(previous => previous.includes(key) ? previous.filter(value => value !== key) : [...previous, key]);
         }}><Image src={`/menu/ingredients/${key}.webp`} width={48} height={48} alt="" />{t(key)}</button>
       </li>)}</ul></ScrollFade>
-    </section>
+    </section>}
   </>;
 }

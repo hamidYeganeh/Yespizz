@@ -65,7 +65,9 @@ async function initialize(role) {
     );
     if (!admin)
       db.exec(`CREATE TABLE IF NOT EXISTS restaurant_profile(owner TEXT PRIMARY KEY REFERENCES user(id),name TEXT NOT NULL DEFAULT '',city TEXT NOT NULL DEFAULT '',handle TEXT UNIQUE,specialties TEXT NOT NULL DEFAULT '[]');
-      CREATE TABLE IF NOT EXISTS restaurant_terms(owner TEXT PRIMARY KEY REFERENCES user(id),commission REAL NOT NULL,latitude REAL NOT NULL,longitude REAL NOT NULL,ovens INTEGER NOT NULL)`);
+      CREATE TABLE IF NOT EXISTS restaurant_terms(owner TEXT PRIMARY KEY REFERENCES user(id),commission REAL NOT NULL,latitude REAL NOT NULL,longitude REAL NOT NULL,ovens INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS restaurant_members(member TEXT PRIMARY KEY REFERENCES user(id),owner TEXT NOT NULL REFERENCES user(id),role TEXT NOT NULL CHECK(role IN ('manager','kitchen','dispatch')),active INTEGER NOT NULL DEFAULT 1);
+      CREATE INDEX IF NOT EXISTS restaurant_members_owner ON restaurant_members(owner)`);
     if (
       admin &&
       !db.prepare("SELECT id FROM user WHERE email=?").get(adminEmail)
@@ -219,6 +221,59 @@ export async function provision(input, resend) {
   );
 }
 const fail = (error, status = 400) => Response.json({ error }, { status });
+
+export function businessAccess(db, member) {
+  const row = db.prepare("SELECT owner,role,active FROM restaurant_members WHERE member=?").get(member);
+  if (!row) return { owner: member, role: "owner" };
+  return row.active ? { owner: String(row.owner), role: String(row.role) } : null;
+}
+
+export async function manageTeam(owner, method, input = {}) {
+  const { db } = await staffStore("business");
+  if (!db.prepare("SELECT 1 FROM restaurant_terms WHERE owner=?").get(owner)) return fail("Restaurant access is required.", 403);
+  if (method === "GET") {
+    return Response.json(db.prepare(`SELECT members.member id,user.name,user.email,members.role,members.active FROM restaurant_members members
+      JOIN user ON user.id=members.member WHERE members.owner=? ORDER BY user.name`).all(owner));
+  }
+  const role = typeof input.role === "string" ? input.role : "";
+  if (!["manager", "kitchen", "dispatch"].includes(role)) return fail("Select a valid staff role.");
+  if (typeof input.id === "string") {
+    if (typeof input.active !== "boolean") return fail("Select whether the account is active.");
+    const changed = transaction(db, () => {
+      const result = db.prepare("UPDATE restaurant_members SET role=?,active=? WHERE owner=? AND member=?")
+        .run(role, Number(input.active), owner, input.id);
+      if (result.changes && !input.active) db.prepare("DELETE FROM session WHERE userId=?").run(input.id);
+      return result.changes;
+    });
+    return changed ? Response.json({ ok: true }) : fail("Team member not found.", 404);
+  }
+  const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  if (!name || name.length > 100 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return fail("Enter the team member’s name and email.");
+  }
+  const code = transaction(db, () => {
+    let member = db.prepare("SELECT id FROM user WHERE email=?").get(email)?.id;
+    if (member) {
+      const existing = db.prepare("SELECT 1 FROM restaurant_members WHERE owner=? AND member=?").get(owner, member);
+      const credential = db.prepare("SELECT 1 FROM account WHERE userId=? AND providerId='credential'").get(member);
+      if (!existing || credential) return null;
+      db.prepare("UPDATE restaurant_members SET role=?,active=1 WHERE member=?").run(role, member);
+    } else {
+      member = addUser(db, email, name);
+      db.prepare("INSERT INTO restaurant_members(member,owner,role) VALUES(?,?,?)").run(member, owner, role);
+    }
+    return issue(db, member, "invite");
+  });
+  if (!code) return fail("This account cannot be invited.", 409);
+  try {
+    await mail(email, "Your Yespizz team invitation", "Use this one-time password within 15 minutes to sign in to the restaurant panel: " + code);
+    return Response.json({ delivered: true });
+  } catch {
+    return Response.json({ delivered: false, oneTimePassword: code });
+  }
+}
+
 export async function staffAction(role, action, req) {
   if (
     !req.headers.get("content-type")?.includes("application/json") ||

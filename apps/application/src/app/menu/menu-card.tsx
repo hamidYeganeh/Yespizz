@@ -18,7 +18,7 @@ function PendingNavigation() {
   return pending ? <span hidden data-menu-pending="" /> : null;
 }
 
-export function MenuCard({ item, vertical = false, hideSave = false, basket }: { item: MenuItem; vertical?: boolean; hideSave?: boolean; basket?: { quantity:number; controls:ReactNode } }) {
+export function MenuCard({ item, vertical = false, hideSave = false, basket }: { item: Omit<MenuItem, "price"> & { price: number }; vertical?: boolean; hideSave?: boolean; basket?: { quantity:number; controls:ReactNode } }) {
   const t = useTranslations("Application.menu");
   const format = useFormatter();
   const [saved, toggle] = useSavedDish(item.id);

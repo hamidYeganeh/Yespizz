@@ -7,8 +7,10 @@ import { TicketHeader, TicketIdentity, TicketFacts } from "./ticket-parts";
 import { OfferMode } from "./offer-mode";
 import { SelectOffer } from "./select-offer";
 import { PageTransition } from "../../components/page-transition";
+import { LiveOffers } from "./live-offers";
 
 export default async function OffersPage() {
+  if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1") return <Suspense><LiveOffers /></Suspense>;
   const [tickets, t] = await Promise.all([getTickets(), getTranslations("Application.profile")]);
   function list(picking: boolean) {
     return <main className="offer-page offer-index">

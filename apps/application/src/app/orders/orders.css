@@ -34,3 +34,5 @@
 
 html:has(.orders-feed) {scrollbar-gutter:stable}
 .orders-list {min-height:60svh;align-content:start}
+
+.orders-actions > :only-child {grid-column:1/-1}

@@ -11,6 +11,7 @@ import { ProgressBar } from "@heroui/react/progress-bar";
 import { Card } from "@heroui/react/card";
 import { menu } from "../catalog";
 import { ProgressiveBlur } from "../progressive-blur";
+import { LiveReviews } from "./live-reviews";
 import "./reviews.css";
 
 const authors = ["Henry, Arthur", "Esther Howard", "Sofia"];
@@ -20,6 +21,7 @@ export default async function Reviews({
   params,
 }: PageProps<"/menu/[id]/reviews">) {
   const { id } = await params;
+  if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1") return <main className="ratings-page"><LiveReviews item={id} /></main>;
   const dish = menu.find((item) => item.id === id);
   if (!dish) notFound();
   const t = await getTranslations("Application.menu");

@@ -3,6 +3,7 @@ export type OrderStatus = "active" | "completed" | "cancelled";
 export type StoredOrder = {
   point?: { lat:number; lng:number };
   paymentMethod?: string;
+  stage?: string;
   scheduledAt?: string;
   reference: string;
   date: string;

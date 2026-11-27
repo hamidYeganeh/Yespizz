@@ -21,6 +21,7 @@ export class AuthController {
     'api/v1/business/auth/:action',
     'api/v1/admin/restaurants',
     'api/v1/business/restaurant-profile',
+    'api/v1/business/team',
     'api/auth/{*path}',
     'api/v1/business/legacy-auth/{*path}',
   ])
@@ -94,7 +95,9 @@ export class AuthController {
         ? source.method === 'POST'
           ? await this.staffAuth.createRestaurant(request)
           : new Response(null, { status: 405 })
-        : path === '/api/v1/business/restaurant-profile'
+        : path === '/api/v1/business/team'
+          ? await this.restaurants.team(request)
+          : path === '/api/v1/business/restaurant-profile'
           ? await this.restaurants.profile(request)
           : legacy
             ? business

@@ -46,9 +46,6 @@
 .payment-mark {width:2.125rem;display:grid;place-items:center;font-size:1.5rem;font-weight:900}
 .payment-mark {height:2rem;object-fit:contain}
 .dark .apple-mark {filter:invert(1)}
-.help-tabs {display:flex;background:var(--foreground);border-radius:999px;padding:var(--spacing)}
-.help-tabs .button {flex:1;border-radius:999px;background:transparent;color:var(--surface);height:calc(12 * var(--spacing))}
-.help-tabs .button[aria-pressed=true] {background:var(--accent);color:var(--accent-foreground)}
 .help-search {padding-block:0;min-height:calc(10 * var(--spacing))}
 .help-search input {flex:1;box-shadow:none;background:transparent}
 .contact-icon {border-radius:calc(2 * var(--spacing));width:calc(9 * var(--spacing));aspect-ratio:1;font-size:1.25rem}
@@ -123,3 +120,8 @@
 [aria-checked=true] > .preference-track i { background:var(--accent-foreground); transform:translateX(1.2rem); }
 
 @media(prefers-reduced-motion:no-preference){.gender-options[data-entering] [role=option]{animation:gender-split .24s ease-out backwards}.gender-options [role=option]:nth-child(2){animation-delay:35ms}.gender-options [role=option]:nth-child(3){animation-delay:70ms}@keyframes gender-split{from{opacity:0;transform:translateX(-.6rem) scale(.96);filter:blur(2px)}}}
+.chat-page .support-compose {display:grid;grid-template-columns:minmax(0,1fr) auto auto}
+.support-attachment {position:relative;display:grid;place-items:center;width:2.75rem;height:2.75rem;border-radius:50%;background:var(--surface)}
+.support-attachment input {position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
+.support-attachment span:last-child:not(:first-child) {position:absolute;bottom:100%;right:0;max-width:12rem;overflow-wrap:anywhere;background:var(--surface);padding:.3rem}
+.support-attachment:focus-within {outline:2px solid var(--focus)}

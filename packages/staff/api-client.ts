@@ -1,9 +1,22 @@
 import "server-only";
 
 type Session = {
-  user: { id: string; email: string; emailVerified: boolean; name: string };
+  user: { id: string; email: string; emailVerified: boolean; name: string; businessOwner?: string; businessRole?: string };
 };
 type Role = "admin" | "business" | "customer";
+
+export function matchesRequestOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  const url = new URL(request.url);
+  if (origin === url.origin) return true;
+  const host = request.headers.get("host");
+  const proxyProtocol = request.headers.get("x-forwarded-proto");
+  const protocol = proxyProtocol === "https" || proxyProtocol === "http" ? `${proxyProtocol}:` : url.protocol;
+  if (!host) return false;
+  try { return origin === new URL(`${protocol}//${host}`).origin; }
+  catch { return false; }
+}
 
 export async function apiFetch(
   path: string,
@@ -42,11 +55,10 @@ export async function apiFetch(
 }
 
 export async function proxyAuth(request: Request, route?: string) {
-  const { pathname, search, origin } = new URL(request.url);
+  const { pathname, search } = new URL(request.url);
   const requestOrigin = request.headers.get("origin");
   if (
-    requestOrigin &&
-    requestOrigin !== origin &&
+    !matchesRequestOrigin(request) &&
     !(
       pathname === "/api/auth/callback/apple" &&
       requestOrigin === "https://appleid.apple.com"

@@ -5,18 +5,41 @@ import { parseDate, today, getLocalTimeZone } from "@internationalized/date";
 import { Button, Calendar, DateField, DatePicker, Input, Label, ListBox, Select } from "@heroui/react";
 import { Icon } from "@repo/icons";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { initialAccount, useProfileValue } from "./profile-data";
+import { commerceApi } from "@/lib/commerce-client";
+
+const offline = process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1";
+const emptyAccount = { name: "", email: "", birth: "", gender: "unspecified", photo: "" };
+
+function useAccount() {
+  const [local, saveLocal, localReady] = useProfileValue("account", initialAccount);
+  const [remote, setRemote] = useState<typeof initialAccount | null>(null);
+  useEffect(() => {
+    if (offline) return;
+    let active = true;
+    commerceApi<Partial<typeof initialAccount>>("me").then(data => {
+      if (active) setRemote({ ...emptyAccount, ...data, photo: data.photo || "/profile/brand-mark.png" });
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  async function save(value: typeof initialAccount) {
+    if (offline) { saveLocal(value); return; }
+    await commerceApi("me", "PATCH", { name: value.name, birth: value.birth, gender: value.gender, photo: value.photo });
+    setRemote(value);
+  }
+  return [offline ? local : remote ?? emptyAccount, save, offline ? localReady : Boolean(remote)] as const;
+}
 
 export function AccountSummary() {
-  const [account] = useProfileValue("account", initialAccount);
-  return <><img className="account-photo small" src={account.photo} alt="" />
+  const [account] = useAccount();
+  return <><img className="account-photo small" src={account.photo || "/profile/brand-mark.png"} alt="" />
     <div className="min-w-0 flex-1"><strong><PageTransitionShared name="profile-title-account">{account.name}</PageTransitionShared></strong><p className="break-all text-sm">{account.email}</p></div></>;
 }
 
 export function Account() {
   const t = useTranslations("Application.settings");
-  const [saved, save, ready] = useProfileValue("account", initialAccount);
+  const [saved, save, ready] = useAccount();
   const [draft, setDraft] = useState<typeof saved | null>(null);
   const [status, setStatus] = useState("");
   const file = useRef<HTMLInputElement>(null);
@@ -26,11 +49,11 @@ export function Account() {
     setDraft({ ...account, [key]: value });
     setStatus("");
   }
-  return <form className="settings-form" onSubmit={event => {
+  return <form className="settings-form" onSubmit={async event => {
     event.preventDefault();
-    try { save(account); setDraft(null); setStatus(t("saved")); } catch { setStatus(t("saveError")); }
+    try { await save(account); setDraft(null); setStatus(t("saved")); } catch { setStatus(t("saveError")); }
   }}>
-    <div className="photo-editor"><img className="account-photo" src={account.photo} alt="" />
+    <div className="photo-editor"><img className="account-photo" src={account.photo || "/profile/brand-mark.png"} alt="" />
       <Button className="photo-button" isIconOnly size="lg" aria-label={t("photo")} onPress={() => file.current?.click()}><Icon name="camera-1" /></Button>
       <input hidden ref={file} type="file" accept="image/*" onChange={async event => {
         const selected = event.target.files?.[0];
@@ -69,7 +92,7 @@ export function Account() {
           <ListBox.Item key={key} id={key} textValue={t(key)}>{t(key)}<ListBox.ItemIndicator /></ListBox.Item>)}
       </ListBox></Select.Popover>
     </Select>
-    <label>{t("email")}<Input type="email" required value={account.email} onChange={e => update("email", e.target.value)} /></label>
+    <label>{t("email")}<Input type="email" readOnly={!offline} required={offline} value={account.email} onChange={e => update("email", e.target.value)} /></label>
     <p role="status">{status}</p>
     <footer className="settings-action"><Button type="submit" isDisabled={!ready || !account.name.trim() || JSON.stringify(saved) === JSON.stringify(account)}>{t("update")}</Button></footer>
   </form>;

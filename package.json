@@ -4,6 +4,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "demo": "npm run build -w api && node scripts/demo.mjs",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
@@ -29,5 +30,9 @@
     "apps/*",
     "packages/*"
   ],
-  "packageManager": "npm@12.2.1"
+  "packageManager": "npm@12.2.1",
+  "dependencies": {
+    "@react-aria/ssr": "^3.10.1",
+    "@react-aria/utils": "^3.34.1"
+  }
 }

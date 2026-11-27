@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   adminEmail,
+  businessAccess,
   provision,
   staffAction,
   staffStore,
@@ -11,11 +12,12 @@ type Role = 'admin' | 'business';
 @Injectable()
 export class StaffAuthService {
   async session(role: Role, headers: Headers) {
-    const { auth } = await staffStore(role);
+    const { auth, db } = await staffStore(role);
     const session = await auth.api.getSession({ headers });
-    return role === 'admin' && session?.user.email !== adminEmail
-      ? null
-      : session;
+    if (!session || (role === 'admin' && session.user.email !== adminEmail)) return null;
+    const access = role === 'business' ? businessAccess(db, session.user.id) : null;
+    if (role === 'business' && !access) return null;
+    return { ...session, user: { ...session.user, businessOwner: access?.owner, businessRole: access?.role } };
   }
 
   async run(role: Role, action: string, request: Request) {

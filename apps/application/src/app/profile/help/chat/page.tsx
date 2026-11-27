@@ -6,10 +6,18 @@ import { Icon } from "@repo/icons";
 import { useTranslations } from "next-intl";
 import { ButtonLink } from "../../../components/button-link";
 import { BackLink } from "../../../components/back-link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { LiveSupport } from "./live-support";
 
 type Message = { text: string; url?: string; kind: "text"|"audio"|"image"|"video"|"file"; time: string };
 export default function Chat() {
+  const p = useTranslations("Application.profile");
+  if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1") return <DemoChat />;
+  return <main className="profile chat-page"><header className="chat-header"><BackLink className="settings-back" href="/profile/help" aria-label={p("back")}><Icon name="chevron-left" /></BackLink><h1>{p("help")}</h1></header>
+    <Suspense><LiveSupport /></Suspense></main>;
+}
+
+function DemoChat() {
   const t = useTranslations("Application.settings");
   const p = useTranslations("Application.profile");
   const [messages, setMessages] = useState<Message[]>([]);

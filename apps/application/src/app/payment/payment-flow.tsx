@@ -4,7 +4,7 @@ import { offerCode, offerAmount, checkoutOfferDraft } from "./discount";
 import type { StoredOrder } from "../orders/order-data";
 import { addTransitionType, useEffect, useRef, useState, useSyncExternalStore, startTransition } from "react";
 import { SlidingNumber } from "@animate-ui/react/primitives/texts/sliding-number";
-import { Button, Card, Input, Sheet } from "@heroui/react";
+import { Button, Card, Input } from "@heroui/react";
 import {
   Icon as AppIcon,
   QrCode,
@@ -32,9 +32,10 @@ import { useProfileValue } from "../profile/profile-data";
 import { previousAppPath } from "../components/back-link";
 import { MenuCard } from "../menu/menu-card";
 import { RollingCounter } from "../components/rolling-counter";
-import { readBasket } from "./cart";
+import { configuredBasketKey, readBasket, readConfiguredBasket, saveConfiguredBasket } from "./cart";
 import "../profile/settings.css";
-import { defaultCards, wallets, addressLine, AddressForm, initialAddresses, SavedAddressRow, type Address } from "../profile/address-payment";
+import { defaultCards, wallets, addressLine, AddressForm, SavedAddressRow } from "../profile/address-payment";
+import { useAddresses } from "../profile/use-addresses";
 import "../profile/settings.css";
 import "./checkout.css";
 
@@ -42,8 +43,9 @@ import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { commerceApi } from "@/lib/commerce-client";
+import { useCartSync } from "./use-cart-sync";
 
-type CheckoutQuote = { total: number; subtotal: number; discount: number; deliveryFee: number; etaMinutes: number };
+type CheckoutQuote = { total: number; subtotal: number; discount: number; deliveryFee: number; tax?: number; etaMinutes: number };
 
 type Screen = "items" | "delivery" | "address" | "payment" | "done";
 type Receipt = {
@@ -57,6 +59,7 @@ type Receipt = {
 
 const empty = () => "";
 const snapshot = () => localStorage.getItem("yespiz-basket") ?? "{}";
+const configuredSnapshot = () => localStorage.getItem(configuredBasketKey) ?? "[]";
 function subscribe(update: () => void) {
   window.addEventListener("storage", update);
   return () => window.removeEventListener("storage", update);
@@ -118,6 +121,7 @@ export function PaymentFlow() {
   const locale = useLocale();
   const german = locale.startsWith("de");
   const online = process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1";
+  useCartSync(online);
   const currency = new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "EUR",
@@ -129,12 +133,14 @@ export function PaymentFlow() {
   );
   const router = useRouter();
   const stored = useSyncExternalStore(subscribe, snapshot, empty);
+  const configuredStored = useSyncExternalStore(subscribe, configuredSnapshot, empty);
+  const configured = online && configuredStored ? readConfiguredBasket() : [];
   const basket = stored ? readBasket() : {};
   const entries = menu.filter((item) => basket[item.id]);
   const [screen, setScreen] = useState<Screen>("items");
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const settings = useTranslations("Application.settings");
-  const [addresses, saveAddresses] = useProfileValue<Address[]>("addresses", initialAddresses);
+  const { items: addresses, save: saveAddress } = useAddresses();
   const [addingAddress, setAddingAddress] = useState(false);
   const [selectedId, saveId] = useProfileValue("delivery-address-id", "");
   const address = addresses.find(entry => entry.id === selectedId) ?? addresses[0];
@@ -153,11 +159,11 @@ export function PaymentFlow() {
   });
   const [orders, saveOrders] = useProfileValue<StoredOrder[]>("orders", []);
   const sheet = useRef<HTMLDialogElement>(null);
-  const count = entries.reduce((sum, item) => sum + basket[item.id]!, 0);
+  const count = entries.reduce((sum, item) => sum + basket[item.id]!, 0) + configured.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = entries.reduce(
     (sum, item) => sum + basket[item.id]! * item.price,
     0,
-  );
+  ) + configured.reduce((sum, item) => sum + item.unitPrice * item.quantity / 100, 0);
   const [scheduledAt, setScheduledAt] = useProfileValue("checkout-scheduled-at", "");
   const discount = code ? Math.min(offerAmount, subtotal) : 0;
   const total = subtotal - discount;
@@ -207,9 +213,9 @@ export function PaymentFlow() {
       else router.replace("/menu");
     }
   }
-  const [shops, setShops] = useState<{ owner: string; name: string; accepting: boolean; paymentsAvailable: boolean }[]>([]);
-  const [chosen, choose] = useState("");
-  const owner = chosen || shops[0]?.owner;
+  const [shops, setShops] = useState<{ owner: string; name: string; accepting: boolean; paymentsAvailable: boolean; demoPayment?: boolean }[]>([]);
+  const owner = shops[0]?.owner;
+  const demoPayment = shops[0]?.demoPayment;
   const [slots, setSlots] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -218,7 +224,10 @@ export function PaymentFlow() {
   const requestRef = useRef({ key: "", reference: "" });
   const inFlight = useRef(false);
   const [resume, setResume] = useState("");
-  const orderInput = { owner, address, scheduledAt, code, items: entries.map(item => ({ id: item.id, quantity: basket[item.id] })) };
+  const orderInput = { owner, address, scheduledAt, code, items: [
+    ...entries.map(item => ({ id: item.id, quantity: basket[item.id] })),
+    ...configured.map(({ id, quantity, size, toppings, removed }) => ({ id, quantity, size, toppings, removed })),
+  ] };
   const quoteKey = JSON.stringify(orderInput);
   const currentQuote = confirmedQuote?.key === quoteKey ? confirmedQuote.price : null;
   useEffect(() => {
@@ -248,8 +257,16 @@ export function PaymentFlow() {
 
   async function pay(reference: string) {
     const result = await commerceApi<{ url: string | null }>(`orders/${encodeURIComponent(reference)}/payment`, "POST", {});
-    if (result.url) window.location.assign(result.url);
-    else router.push(`/orders/${encodeURIComponent(reference)}`);
+    if (!result.url) {
+      router.push(`/orders/${encodeURIComponent(reference)}`);
+      return;
+    }
+    const destination = new URL(result.url, window.location.origin);
+    if (destination.origin === window.location.origin) {
+      router.push(destination.pathname + destination.search);
+    } else {
+      window.location.assign(destination.href);
+    }
   }
 
   async function advance() {
@@ -266,11 +283,19 @@ export function PaymentFlow() {
         if (!contact.name.trim() || !/^\S+@\S+\.\S+$/.test(contact.email.trim()) || contact.phone.trim().length < 5) {
           throw new Error(german ? "Bitte Name, E-Mail und Telefonnummer eingeben." : "Enter your name, email and phone number.");
         }
-        const key = JSON.stringify([quoteKey, contact, currentQuote.total]);
-        if (requestRef.current.key !== key) requestRef.current = { key, reference: "FIT" + crypto.randomUUID() };
+        const identity = JSON.stringify([quoteKey, contact, currentQuote.total]);
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identity));
+        const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+        if (requestRef.current.key !== key) {
+          const previous = sessionStorage.getItem(`yespizz-open-checkout-${key}`);
+          requestRef.current = { key, reference: previous || "FIT" + crypto.randomUUID() };
+          sessionStorage.setItem(`yespizz-open-checkout-${key}`, requestRef.current.reference);
+        }
         const { reference } = requestRef.current;
-        await commerceApi("orders", "POST", { ...orderInput, ...contact, reference, expectedTotal: currentQuote.total });
-        sessionStorage.setItem(`yespizz-checkout-${reference}`, stored);
+        try { await commerceApi("orders", "POST", { ...orderInput, ...contact, reference, expectedTotal: currentQuote.total }); }
+        catch (failure) { setConfirmedQuote(null); throw failure; }
+        sessionStorage.setItem(`yespizz-checkout-${reference}`, JSON.stringify([stored, configuredStored]));
+        sessionStorage.setItem(`yespizz-checkout-key-${reference}`, key);
         await pay(reference);
       });
       return;
@@ -428,6 +453,14 @@ export function PaymentFlow() {
                   }} />
                 )}} />
               ))}
+            {screen === "items" && configured.map(line => <Card key={line.key} className="checkout-card"><Card.Content>
+              <ButtonLink href={`/menu/${encodeURIComponent(line.id)}`}>{line.name}</ButtonLink>
+              <p>{[line.size, ...line.toppings.map(item => `+${item}`), ...line.removed.map(item => `−${item}`)].filter(Boolean).join(" · ")}</p>
+              <p>{money(line.unitPrice / 100)}</p>
+              <RollingCounter start={line.quantity} value={line.quantity} label={`${dish("quantity")} · ${line.name}`} lessLabel={dish("decrease")} moreLabel={dish("increase")} onChange={quantity => {
+                saveConfiguredBasket(readConfiguredBasket().flatMap(item => item.key !== line.key ? [item] : quantity ? [{ ...item, quantity }] : []));
+              }} />
+            </Card.Content></Card>)}
             {screen === "delivery" && (
               <Card className="checkout-card">
                 <h2>
@@ -453,7 +486,6 @@ export function PaymentFlow() {
               </Card>
             )}
             {screen === "delivery" && online && <Card className="checkout-card">
-              <label>Restaurant<select className="block w-full rounded-xl bg-surface-secondary p-3" value={owner ?? ""} onChange={e => { choose(e.target.value); setScheduledAt(""); }}>{shops.map(shop => <option key={shop.owner} value={shop.owner}>{shop.name}</option>)}</select></label>
               {!shops.length && <p>{german ? "Derzeit nimmt kein Restaurant Bestellungen an." : "No restaurants are accepting orders yet."}</p>}
               {owner && !shops.find(shop => shop.owner === owner)?.paymentsAvailable && <p>{german ? "Online-Zahlungen sind derzeit nicht verfügbar." : "Online payments are currently unavailable."}</p>}
               <label>{german ? "Lieferzeit" : "Delivery time"}<select className="block w-full rounded-xl bg-surface-secondary p-3" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)}>
@@ -508,10 +540,12 @@ export function PaymentFlow() {
                     {t("payment")}
                   </h2>
                   {online ? <fieldset className="checkout-form">
+                    {demoPayment && <p>{german ? "Demo-Zahlung. Es wird kein Geld abgebucht." : "Demo payment. No money will be charged."}</p>}
                     <label>{german ? "Name" : "Full name"}<Input autoComplete="name" value={contact.name} onChange={e => setContact({ ...contact, name: e.target.value })} /></label>
                     <label>{german ? "E-Mail" : "Email"}<Input type="email" autoComplete="email" value={contact.email} onChange={e => setContact({ ...contact, email: e.target.value })} /></label>
                     <label>{german ? "Telefonnummer" : "Phone"}<Input type="tel" autoComplete="tel" value={contact.phone} onChange={e => setContact({ ...contact, phone: e.target.value })} /></label>
                     {currentQuote && <p>{german ? "Lieferkosten" : "Delivery"} {currency.format(currentQuote.deliveryFee / 100)} · {currentQuote.etaMinutes} min</p>}
+                    {currentQuote?.tax !== undefined && <p>{german ? "Enthaltene MwSt." : "Included VAT"} {currency.format(currentQuote.tax / 100)}</p>}
                   </fieldset> : <fieldset aria-label={t("payment")} className="grid gap-2">{methods.map(name =>
                     <label className="checkout-choice cursor-pointer" key={name}>
                       <input type="radio" name="paymentMethod" checked={paymentMethod === name} onChange={() => selectMethod(name)}/>{name}
@@ -566,21 +600,19 @@ export function PaymentFlow() {
                 </dialog>
               </>
             )}
-            <Sheet placement="bottom" isOpen={addingAddress} onOpenChange={setAddingAddress}>
-              <Sheet.Backdrop><Sheet.Content className="mx-auto max-w-(--app-width)"><Sheet.Dialog>
-                <Sheet.Handle /><Sheet.CloseTrigger />
-                <Sheet.Header><Sheet.Heading>{settings("addAddress")}</Sheet.Heading></Sheet.Header>
-                <Sheet.Body className="overflow-y-auto" data-lenis-prevent>
-                  {addingAddress && <AddressForm inSheet initial={{id:"",name:"",line:""}} onSave={draft => {
-                    const entry = {...draft, id: crypto.randomUUID()};
-                    saveAddresses([...addresses, entry]);
-                    saveId(entry.id);
-                    setAddingAddress(false);
-                    show("delivery");
-                  }} />}
-                </Sheet.Body>
-              </Sheet.Dialog></Sheet.Content></Sheet.Backdrop>
-            </Sheet>
+            {addingAddress && <Card className="checkout-card"><Card.Content>
+              <h2>{settings("addAddress")}</h2>
+              <AddressForm inSheet initial={{id:"",name:"",line:""}} onSave={draft => {
+                const entry = {...draft, id: crypto.randomUUID()};
+                void handleOnline(async () => {
+                  await saveAddress(entry);
+                  saveId(entry.id);
+                  setAddingAddress(false);
+                  show("delivery");
+                });
+              }} />
+              <Button type="button" variant="secondary" onPress={() => setAddingAddress(false)}>{t("back")}</Button>
+            </Card.Content></Card>}
             <footer className="checkout-bottom">
               {screen === "address" ? (
                 <Button isDisabled={!addresses.length} type="submit" form="checkout-address">
@@ -593,7 +625,7 @@ export function PaymentFlow() {
                     <strong>{money(currentQuote ? currentQuote.total / 100 : total, subtotal)}</strong>
                   </div>
                   <Button isDisabled={pending || (screen === "delivery" && (!address || (online && (!owner || !shops.find(shop => shop.owner === owner)?.paymentsAvailable))))} data-own-sound={screen === "payment" ? "" : undefined} onPress={advance}>
-                    {screen === "payment" && online ? currentQuote ? german ? "Zahlungspflichtig bestellen" : "Pay and place order" : german ? "Preis prüfen" : "Review price" : t(screen === "payment" ? "confirmDemo" : "continue")}
+                    {screen === "payment" && online ? currentQuote ? demoPayment ? (german ? "Demo-Bestellung aufgeben" : "Place demo order") : (german ? "Zahlungspflichtig bestellen" : "Pay and place order") : (german ? "Preis prüfen" : "Review price") : t(screen === "payment" ? "confirmDemo" : "continue")}
                   </Button>
                 </>
               )}

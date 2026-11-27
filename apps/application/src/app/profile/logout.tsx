@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { disconnectNativePush } from "@/lib/native-push";
 
 export function Logout({initiallyOpen = false}: {initiallyOpen?: boolean}) {
   const [open,setOpen] = useState(initiallyOpen);
@@ -23,6 +24,7 @@ export function Logout({initiallyOpen = false}: {initiallyOpen?: boolean}) {
       <Sheet.Footer><Button variant="outline" onPress={()=>setOpen(false)}>{t("cancel")}</Button><Button isPending={pending} onPress={async () => {
         setPending(true);
         try {
+          await disconnectNativePush().catch(() => {});
           const result = await authClient.signOut();
           if (result.error) throw new Error();
           router.replace("/auth");

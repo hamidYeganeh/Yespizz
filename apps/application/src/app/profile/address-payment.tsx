@@ -7,20 +7,30 @@ import { useProfileValue } from "./profile-data";
 
 import { CardSheet } from "../../components/ui/card-sheet";
 import { AddressMap, type Point } from "./address-map";
+import { useAddresses } from "./use-addresses";
+import { commerceApi } from "@/lib/commerce-client";
+import { SavedCards } from "./saved-cards";
 
 const addressFields = ["unit", "city", "region", "postalCode", "country", "deliveryNotes"] as const;
 export type Address = { id: string; name: string; line: string; point?: Point } & Partial<Record<typeof addressFields[number], string>>;
-export const initialAddresses: Address[] = process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1"
-  ? [{ id: "demo", name: "Demo address", line: "1 Sample Street", city: "Amsterdam" }]
-  : [];
 
 export function AddressForm({initial, onSave, inSheet = false}: {initial: Address; onSave: (address: Address) => void; inSheet?: boolean}) {
   const t = useTranslations("Application.settings");
   const [editing, edit] = useState(initial);
   const [lookupFailed, setLookupFailed] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ id: string; text: string }[]>([]);
+  const [streetQuery, setStreetQuery] = useState("");
   const request = useRef<AbortController | null>(null);
   const autoFilled = useRef<Record<string,string>>({});
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1" || streetQuery.trim().length < 3) return;
+    let active = true;
+    const timer = setTimeout(() => void commerceApi<typeof suggestions>("locations/suggestions", "POST", { query: streetQuery }).then(data => {
+      if (active) setSuggestions(data);
+    }).catch(() => { if (active) setSuggestions([]); }), 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [streetQuery]);
   async function selectPoint(point: Point) {
     request.current?.abort();
     setLookupFailed(false);
@@ -57,8 +67,12 @@ export function AddressForm({initial, onSave, inSheet = false}: {initial: Addres
   }
   return <form className="settings-form" onSubmit={event => { event.preventDefault(); onSave(editing); }}>
     <label>{t("addressName")}<Input required autoFocus value={editing.name} onChange={e => edit({...editing,name:e.target.value})} /></label>
-    <label>{t("street")}<Input required value={editing.line} onChange={e => edit({...editing,line:e.target.value})} /></label>
-    {addressFields.map(key => <label key={key}>{t(key)}<Input value={editing[key] ?? ""} onChange={e => edit({...editing,[key]:e.target.value})} /></label>)}
+    <label>{t("street")}<Input required value={editing.line} onChange={e => { edit({ ...editing, line: e.target.value }); setStreetQuery(e.target.value); setSuggestions([]); }} /></label>
+    {suggestions.length > 0 && <ul>{suggestions.map(result => <li key={result.id}><button type="button" onClick={() => {
+      setStreetQuery(""); setSuggestions([]);
+      void commerceApi<Partial<Address>>(`locations/places/${encodeURIComponent(result.id)}`).then(data => edit(current => ({ ...current, ...data }))).catch(() => setLookupFailed(true));
+    }}>{result.text}</button></li>)}</ul>}
+    {addressFields.map(key => <label key={key}>{t(key)}<Input required={process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1" && (key === "city" || key === "postalCode")} value={editing[key] ?? ""} onChange={e => edit({...editing,[key]:e.target.value})} /></label>)}
     {process.env.NEXT_PUBLIC_YESPIZ_OFFLINE !== "1" && <AddressMap point={editing.point} onSelect={selectPoint}/>}
     {lookupFailed && <p role="status">{t("pinLookupFailed")}</p>}
     <footer className={inSheet ? undefined : "settings-action"}><Button type="submit" isDisabled={!editing.name.trim() || !editing.line.trim()}>{t("save")}</Button></footer>
@@ -78,12 +92,12 @@ export function SavedAddressRow({ item, onPress, selected }: { item: Address; on
 
 export function AddressBook() {
   const t = useTranslations("Application.settings");
-  const [items, save, ready] = useProfileValue<Address[]>("addresses", initialAddresses);
+  const { items, save, remove, ready } = useAddresses();
   const [editing, edit] = useState<Address | null>(null);
-  if (editing) return <AddressForm initial={editing} onSave={address => {
-    save(items.some(a => a.id === address.id) ? items.map(a => a.id === address.id ? address : a) : [...items, address]);
-    edit(null);
-  }} />;
+  const [error, setError] = useState("");
+  if (editing) return <>{error && <p role="alert">{error}</p>}<AddressForm initial={editing} onSave={address => {
+    void save(address).then(() => { setError(""); edit(null); }).catch(failure => setError(failure.message));
+  }} />{items.some(entry => entry.id === editing.id) && <Button variant="danger" onPress={() => void remove(editing.id).then(() => edit(null)).catch(failure => setError(failure.message))}>Delete address</Button>}</>;
 
   return <><ul className="settings-list">{items.map(item => <li key={item.id}><SavedAddressRow item={item} onPress={() => edit(item)} /></li>)}</ul>
     {ready && !items.length && <div className="settings-empty"><img className="empty-art" src="/empty/address.webp" alt="" /><h2>{t("emptyAddress")}</h2><p>{t("addressHint")}</p></div>}
@@ -93,6 +107,10 @@ export function AddressBook() {
 export const wallets = ["Klarna", "Google Pay", "Apple Pay", "Stripe", "PayPal"];
 export const defaultCards = ["8395","4679","2766","3892"];
 export function Payments() {
+  return process.env.NEXT_PUBLIC_YESPIZ_OFFLINE === "1" ? <DemoPayments /> : <SavedCards />;
+}
+
+function DemoPayments() {
   const t = useTranslations("Application.settings");
   const [cards, save, ready] = useProfileValue<string[]>("cards", defaultCards);
   const [adding, setAdding] = useState(false);

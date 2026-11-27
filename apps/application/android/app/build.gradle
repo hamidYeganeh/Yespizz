@@ -26,6 +26,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            if (System.getenv('YESPIZZ_ANDROID_DEMO') == '1') {
+                applicationIdSuffix '.demo'
+                resValue 'string', 'app_name', 'Yespiz Demo'
+                resValue 'string', 'title_activity_main', 'Yespiz Demo'
+            }
+        }
         release {
             signingConfig signingConfigs.release
             minifyEnabled false

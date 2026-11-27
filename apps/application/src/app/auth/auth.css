@@ -12,14 +12,6 @@
   min-height: 100svh;
   overflow: hidden;
 }
-.auth-screen .auth-primary, .auth-screen .auth-provider {
-  width: 100%;
-  min-height: 3.5rem;
-  border-radius: 100vmax;
-  font-size: 1rem;
-  font-weight: 600;
-}
-.auth-primary.button { background: var(--accent); color: var(--accent-foreground); }
 .auth-provider.button { background: var(--surface); color: var(--surface-foreground); }
 .auth-provider img { object-fit: contain; }
 .auth-wordmark { position: relative; width: 32%; height: auto; align-self: center; }
