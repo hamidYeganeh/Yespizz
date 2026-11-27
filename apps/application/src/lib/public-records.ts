@@ -9,7 +9,7 @@ export async function publicRecords(
   collection: "content" | "ads" | "promotions" | "reviews",
   allRestaurants = false,
 ) {
-  const connectionString = process.env.COMMERCE_DATABASE_URL;
+  const connectionString = process.env.COMMERCE_DATABASE_URL || process.env.COMMERCE_POSTGRES_URL;
   try {
     if (!connectionString) return scopes.flatMap(scope => records(scope, collection));
     pool ??= new Pool({ connectionString, max: 4, connectionTimeoutMillis: 5000, query_timeout: 5000 });
