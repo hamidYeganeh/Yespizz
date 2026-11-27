@@ -6,6 +6,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { eraseCustomer } from './customer-data.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { Pool } from 'pg';
 
 const mailAttempt = new AsyncLocalStorage<{ failed: boolean }>();
 
@@ -42,7 +43,7 @@ export async function handleCustomerAuth(request: Request) {
   });
 }
 
-async function initialize() {
+function openSqlite() {
   const file = resolve(
     process.env.AUTH_DATABASE_PATH || '../application/.data/auth.sqlite',
   );
@@ -51,6 +52,14 @@ async function initialize() {
   database.exec(
     'PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON',
   );
+  return database;
+}
+
+async function initialize() {
+  const connectionString = process.env.CUSTOMER_AUTH_DATABASE_URL;
+  const database = connectionString
+    ? new Pool({ connectionString, max: 4, connectionTimeoutMillis: 10000 })
+    : openSqlite();
   const options = {
     baseURL:
       process.env.BETTER_AUTH_URL ||
@@ -124,17 +133,25 @@ async function initialize() {
   try {
     if (!options.secret || !options.baseURL)
       throw new Error('Set BETTER_AUTH_SECRET and BETTER_AUTH_URL');
-    const migration = await getMigrations(options);
-    await migration.runMigrations();
-    database.exec(
-      'CREATE UNIQUE INDEX IF NOT EXISTS user_invite_code ON user(inviteCode)',
-    );
-    database.exec(
-      "UPDATE user SET inviteCode = upper(hex(randomblob(8))) WHERE inviteCode IS NULL OR inviteCode = ''",
-    );
+    if (database instanceof Pool) {
+      const lock = await database.connect();
+      try {
+        await lock.query('SELECT pg_advisory_lock(138004309, 1)');
+        await (await getMigrations(options)).runMigrations();
+        await lock.query('CREATE UNIQUE INDEX IF NOT EXISTS user_invite_code ON "user" ("inviteCode")');
+      } finally {
+        // Destroy the connection so the session lock is always released.
+        lock.release(true);
+      }
+    } else {
+      await (await getMigrations(options)).runMigrations();
+      database.exec('CREATE UNIQUE INDEX IF NOT EXISTS user_invite_code ON user(inviteCode)');
+      database.exec("UPDATE user SET inviteCode = upper(hex(randomblob(8))) WHERE inviteCode IS NULL OR inviteCode = ''");
+    }
     return betterAuth(options);
   } catch (error) {
-    database.close();
+    if (database instanceof Pool) await database.end();
+    else database.close();
     throw error;
   }
 }
