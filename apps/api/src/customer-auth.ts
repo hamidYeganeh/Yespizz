@@ -56,7 +56,8 @@ function openSqlite() {
 }
 
 async function initialize() {
-  const connectionString = process.env.CUSTOMER_AUTH_DATABASE_URL;
+  const connectionString = process.env.CUSTOMER_AUTH_DATABASE_URL ||
+    process.env.CUSTOMER_AUTH_DATABASE_DATABASE_URL_UNPOOLED;
   const database = connectionString
     ? new Pool({ connectionString, max: 4, connectionTimeoutMillis: 10000 })
     : openSqlite();
