@@ -13,7 +13,10 @@ const data = join(root, ".data");
 mkdirSync(data, { recursive: true });
 const storage = mkdtempSync(join(data, "demo-"));
 const host = "127.0.0.1";
-const ports = { application: 17331, admin: 17332, business: 17333, courier: 17334, api: 17338 };
+const offset = Number(process.env.YESPIZZ_DEMO_PORT_OFFSET ?? "0");
+if (!Number.isInteger(offset) || offset < 0 || offset > 48197) throw Error("Invalid demo port offset.");
+const ports = { application: 17331 + offset, admin: 17332 + offset, business: 17333 + offset,
+  courier: 17334 + offset, api: 17338 + offset };
 const urls = Object.fromEntries(Object.entries(ports).map(([app, port]) => [app, `http://${host}:${port}`]));
 const mobile = process.argv.includes("--mobile");
 const publicUrls = { ...urls };
@@ -51,6 +54,7 @@ for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_CONNEC
   "RESEND_API_KEY", "AUTH_EMAIL_FROM", "GOOGLE_PLACES_API_KEY", "OSRM_API_URL", "APNS_PRIVATE_KEY",
   "FCM_PRIVATE_KEY", "GOOGLE_CLIENT_ID", "APPLE_CLIENT_ID", "ADMIN_AUTH_SECRET",
   "BUSINESS_AUTH_SECRET", "OBSERVE_APP_KEY", "OBSERVE_APP_SECRET",
+  "CUSTOMER_AUTH_DATABASE_URL", "COMMERCE_DATABASE_URL",
   "YESPIZZ_API_VERCEL_BYPASS_SECRET", "VERCEL"]) env[name] = "";
 Object.assign(process.env, env);
 
@@ -112,6 +116,13 @@ async function seed() {
       return { email };
     });
     record.run("system", "configuration", "local-demo", "{}");
+    record.run("admin", "content", "demo-home", JSON.stringify({
+      placement: "home", headline: "Pizza night in Vienna", description: "Browse the menu and try a demo delivery.",
+      destination: "/menu", published: true,
+    }));
+    record.run("admin", "promotions", "demo-welcome", JSON.stringify({
+      code: "DEMO5", name: "Demo offer", amount: 500, minimum: 1500, active: true,
+    }));
     return restaurants;
   } finally {
     orders.close();
@@ -119,13 +130,21 @@ async function seed() {
 }
 
 try {
+  const { getAuth } = await import("../apps/api/dist/customer-auth.js");
+  const customer = await (await getAuth()).$context;
+  const customerEmail = "customer@yespizz.demo";
+  const user = await customer.internalAdapter.createUser({ name: "Demo customer", email: customerEmail, emailVerified: true });
+  await customer.internalAdapter.linkAccount({
+    userId: user.id, accountId: user.id, providerId: "credential",
+    password: await customer.password.hash(password),
+  });
   await staffStore("admin");
   launch("application");
   await waitFor("application", "/api/v1/health");
   const restaurants = await seed();
   for (const app of ["api", "admin", "business", "courier"]) launch(app);
   await Promise.all(Object.keys(ports).map((app) => waitFor(app)));
-  const config = { urls: publicUrls, adminEmail, restaurants, password };
+  const config = { urls: publicUrls, adminEmail, restaurants, customerEmail, password };
   writeFileSync(join(storage, "demo.json"), JSON.stringify(config, null, 2));
   console.log("\nDemo ready\n", publicUrls, "\nCredentials:", join(storage, "demo.json"));
 } catch (error) {

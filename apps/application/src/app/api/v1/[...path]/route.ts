@@ -11,6 +11,7 @@ import { inputText, jsonBody, respond, sameOrigin } from "../../../../../../../p
 import { addSupportMessage, parseAttachment, supportFile, ticketFor, ticketsFor } from "../../../../../../../packages/ui/src/commerce-support";
 import { pushAvailable, sendOrderPush } from "../../../../../../../packages/ui/src/commerce-push";
 import { placeDetails, placeSuggestions } from "@/lib/places";
+import { publicRecords } from "@/lib/public-records";
 
 type Context = { params: Promise<{ path: string[] }> };
 const guestCookie = "yespizz-guest";
@@ -209,17 +210,19 @@ async function handle(request: Request, path: string[]) {
   }
   if (collection === "offers" && !action && method === "GET") {
     const owner = id || "yespizz";
-    return owner ? records(owner === "yespizz" ? "admin" : owner, "promotions").filter(row => row.active === true).map(({ id, code, amount, minimum, name }) => ({ id, code, amount, minimum, name })) : [];
+    const offers = await publicRecords([owner === "yespizz" ? "admin" : owner], "promotions");
+    return offers.filter(row => row.active === true).map(({ id, code, amount, minimum, name }) => ({ id, code, amount, minimum, name }));
   }
   if (collection === "content" && !action && method === "GET") {
     const owner = url.searchParams.get("restaurant") ?? "yespizz";
     const placement = id ?? "home";
     const scopes = owner ? [owner, "admin"] : ["admin"];
     const now = Date.now();
-    return scopes.flatMap(scope => [
-      ...records(scope, "content").filter(item => item.published === true || item.status === "published"),
-      ...records(scope, "ads").filter(item => item.active === true || item.status === "running"),
-    ]).filter(item => item.placement === placement && (!item.startsAt || Date.parse(String(item.startsAt)) <= now) &&
+    const [content, ads] = await Promise.all([publicRecords(scopes, "content"), publicRecords(scopes, "ads")]);
+    return [
+      ...content.filter(item => item.published === true || item.status === "published"),
+      ...ads.filter(item => item.active === true || item.status === "running"),
+    ].filter(item => item.placement === placement && (!item.startsAt || Date.parse(String(item.startsAt)) <= now) &&
       (!item.endsAt || Date.parse(String(item.endsAt)) > now)).flatMap(item => {
       const headline = typeof item.headline === "string" ? item.headline.trim().slice(0, 120) : "";
       const href = typeof item.destination === "string" && /^\/(?![\/\\])[^\u0000-\u001f]*$/.test(item.destination) ? item.destination : "/menu";
@@ -229,8 +232,9 @@ async function handle(request: Request, path: string[]) {
   if (collection === "reviews" && !action && method === "GET") {
     const owner = id ?? "yespizz";
     const item = url.searchParams.get("item");
-    if (!owner) return [];
-    const reviews = owner === "yespizz" ? businesses().flatMap(shop => records(shop.owner, "reviews")) : records(owner, "reviews");
+    const allRestaurants = owner === "yespizz";
+    const scopes = allRestaurants ? businesses().map(shop => shop.owner) : [owner];
+    const reviews = await publicRecords(scopes, "reviews", allRestaurants);
     return reviews.filter(row => row.published === true && (!item || (Array.isArray(row.items) && row.items.includes(item))))
     .map(({ id: reviewId, rating, text, at, reply, demo }) => ({ id: reviewId, rating, text, at, reply, demo: demo === true }));
   }
