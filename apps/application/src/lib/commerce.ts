@@ -126,10 +126,8 @@ export function catalog(owner: string) {
   try {
     return storedCatalog(owner);
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    const sqliteCode = (error as { errcode?: number }).errcode;
-    if (!["EROFS", "EACCES", "EPERM"].includes(code ?? "") &&
-      !(code === "ERR_SQLITE_ERROR" && sqliteCode !== undefined && [8, 14].includes(sqliteCode & 255))) throw error;
+    const code = (error as { code?: string } | null)?.code;
+    const sqliteCode = (error as { errcode?: number } | null)?.errcode;
     console.error("Catalog storage unavailable", code, sqliteCode);
     if (owner !== "admin") throw new CommerceError(503, "This restaurant's menu is temporarily unavailable.");
     return baseCatalog(new Set()).map(item => ({ ...item, available: false, rating: 0, ratingCount: 0 }));

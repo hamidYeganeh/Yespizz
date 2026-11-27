@@ -53,6 +53,10 @@ async function handle(request: Request, path: string[]) {
   if (collection === "locations" && id === "suggestions" && !action && method === "POST") return placeSuggestions(inputText((await jsonBody(request)).query, 150));
   if (collection === "locations" && id === "places" && action && method === "GET") return placeDetails(action);
   if (collection === "restaurants" && method === "GET") {
+    if (id === "yespizz" && action === "menu") {
+      const search = url.searchParams.get("q")?.toLowerCase() ?? "";
+      return catalog(id).filter(item => !search || item.name?.toLowerCase().includes(search));
+    }
     const shops = restaurants();
     if (!id) return shops;
     const shop = shops.find(entry => entry.owner === id);
