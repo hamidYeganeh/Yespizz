@@ -96,6 +96,7 @@ async function handle(request: Request, path: string[]) {
         return publicOrder(order);
       };
       if (previous) return verify(previous);
+      if (!paymentsAvailable()) throw new CommerceError(503, "Checkout is temporarily unavailable.");
       input.owner = "yespizz";
       const price = quote(input);
       if (price.total !== input.expectedTotal) throw new CommerceError(409, "The total changed. Review the new price before paying.");
